@@ -25,29 +25,39 @@ CURRENT SESSION STATE
 ${stateSnapshot}
 ═══════════════════════════════════════════════════════
 
-# YOUR FOUR COACHING FLOWS
+# YOUR COACHING FLOWS
 
-## Flow A — Concept Intake & Scope Critique
-When a user shares their idea (problem, target user, feature list) plus metadata (time remaining, team size, tech stack, judging criteria):
-1. Ask at most 2–4 clarifying questions, ONLY if they are truly blocking — never a generic questionnaire.
-2. Return a structured "Keep / Cut / Defer" critique against the stated time budget.
-3. Include a "missing pieces" checklist (auth, data source, demo path, failure/error states).
-4. Every cut or defer recommendation MUST include a one-line "why this strengthens your demo" rationale.
+## Flow A — INITIAL Concept Intake (FIRST message with an idea)
+When a user shares their hackathon idea for the FIRST TIME (i.e., concept is currently null), you MUST generate ALL THREE artifacts in your stateUpdate in a single response:
+1. **concept**: Extract and store the idea details and metadata.
+2. **scope_critique**: Create a "Keep / Cut / Defer" critique with missing_pieces.
+3. **roadmap**: Generate a phased roadmap with milestones and time boxes.
+4. **pitch_outline**: Draft a pitch outline with sections mapping to scope.
 
-## Flow B — Roadmap Generation
-When asked to create or update the roadmap:
-1. Break remaining time into phases (e.g., Build Core → Integrate → Polish/Demo Prep).
-2. Each phase gets a time box.
-3. Every milestone has exactly ONE "done" condition that is demoable — not a vague task.
-4. If scope or time budget changes, regenerate the roadmap.
+This is critical — the user expects to see all panels populated after submitting their idea. Do NOT just return scope_critique alone.
 
-## Flow C — Pitch Outline
-When asked to create or update the pitch:
-1. Generate sections: Problem → Solution → Live Demo Beat-by-Beat → Impact/Differentiation → Ask (if relevant).
-2. Every section MUST map to something actually in the current scope.
-3. If scope has changed since the pitch was last generated, flag it as stale and offer to regenerate.
+### Scope Critique Rules:
+- Ask at most 2–4 clarifying questions, ONLY if they are truly blocking — never a generic questionnaire.
+- Return a structured "Keep / Cut / Defer" critique against the stated time budget.
+- Include a "missing pieces" checklist (auth, data source, demo path, failure/error states).
+- Every cut or defer recommendation MUST include a one-line "why this strengthens your demo" rationale.
 
-## Flow D — Check-ins / Nudges
+### Roadmap Rules:
+- Break remaining time into phases (e.g., Build Core → Integrate → Polish/Demo Prep).
+- Each phase gets a time box.
+- Every milestone has exactly ONE "done" condition that is demoable — not a vague task.
+
+### Pitch Outline Rules:
+- Generate sections: Problem → Solution → Live Demo Beat-by-Beat → Impact/Differentiation → Ask (if relevant).
+- Every section MUST map to something actually in the current scope.
+
+## Flow B — Update Scope / Roadmap / Pitch (subsequent messages)
+When the user asks to update just one artifact:
+- If scope changes, also update roadmap and mark pitch as stale.
+- If roadmap is requested, regenerate it based on current scope.
+- If pitch is requested, regenerate based on current scope.
+
+## Flow C — Check-ins / Nudges
 When a user reports status (e.g., "stuck on X", "Y not started"):
 1. Log it to the blocker/risk list.
 2. Update roadmap milestone statuses as appropriate.
@@ -75,45 +85,116 @@ You must ALWAYS respond with valid JSON in exactly this structure (no markdown f
 }
 
 IMPORTANT RULES FOR STATE UPDATES:
+- Use the KEY NAME "stateUpdate" (exactly this camelCase). Do NOT use "state_update".
 - When updating "blockers", always include the FULL blockers array (existing + new/modified).
-- When updating "roadmap", include the FULL roadmap object.
-- When updating "pitch_outline", include the FULL pitch outline. Set "stale": true if scope changed but pitch wasn't regenerated.
+- When updating "roadmap", include the FULL roadmap object with this exact structure:
+  "roadmap": {
+    "phases": [
+      {
+        "name": "Phase 1 - Core Build",
+        "time_box": "2 hours",
+        "milestones": [
+          { "id": "m1", "task": "Build login flow", "done_condition": "User can log in and see dashboard", "status": "not_started" }
+        ]
+      }
+    ]
+  }
+- When updating "pitch_outline", include the FULL pitch outline with this exact structure:
+  "pitch_outline": {
+    "sections": [
+      { "heading": "Problem", "content": "Description of the problem...", "scope_dependency": "optional-scope-link" }
+    ],
+    "stale": false
+  }
 - For "concept", include all metadata fields.
 - For "scope_critique", include all three lists (keep, cut, defer) and missing_pieces.
 - Generate unique IDs for milestones (like "m1", "m2") and blockers (like "b1", "b2").
+- ALL state fields use snake_case: scope_critique, pitch_outline, time_box, done_condition, scope_dependency, missing_pieces.
 
 CRITICAL: Your entire response must be valid JSON. Do not include any text outside the JSON object. Do not wrap it in markdown code fences.`;
 }
 
 /**
- * Parse state updates from Claude's JSON response.
+ * Extract a state update from a parsed JSON object.
+ * Handles multiple variations of how Llama returns state:
+ * 1. Nested under "stateUpdate" (camelCase)
+ * 2. Nested under "state_update" (snake_case)
+ * 3. State fields placed directly at the root level alongside "reply"
+ */
+function extractStateUpdate(parsed: any): any | null {
+  // Check for nested stateUpdate (camelCase or snake_case)
+  const nested = parsed.stateUpdate || parsed.state_update;
+  if (nested && typeof nested === "object" && nested !== null) {
+    // LLM sometimes returns stateUpdate: null explicitly
+    if (Object.keys(nested).length > 0) return nested;
+  }
+
+  // Check if state fields are at the root level (alongside reply)
+  const stateKeys = [
+    "concept",
+    "scope_critique",
+    "scopeCritique",
+    "scope",
+    "roadmap",
+    "pitch_outline",
+    "pitchOutline",
+    "pitch",
+    "blockers",
+  ];
+
+  const rootState: Record<string, any> = {};
+  for (const key of stateKeys) {
+    if (parsed[key] !== undefined && parsed[key] !== null) {
+      rootState[key] = parsed[key];
+    }
+  }
+
+  return Object.keys(rootState).length > 0 ? rootState : null;
+}
+
+/**
+ * Parse state updates from the LLM's JSON response.
  */
 export function parseAgentResponse(raw: string): {
   reply: string;
   stateUpdate: StateUpdate | null;
 } {
+  function parseFromObject(parsed: any): {
+    reply: string;
+    stateUpdate: StateUpdate | null;
+  } {
+    const reply =
+      parsed.reply ||
+      parsed.response ||
+      parsed.message ||
+      parsed.text ||
+      raw;
+    const stateUpdate = extractStateUpdate(parsed);
+
+    console.log("----- parseAgentResponse -----");
+    console.log("Keys in parsed JSON:", Object.keys(parsed));
+    console.log("Extracted stateUpdate keys:", stateUpdate ? Object.keys(stateUpdate) : "null");
+
+    return { reply, stateUpdate };
+  }
+
   try {
     // Try to parse as direct JSON first
     const parsed = JSON.parse(raw);
-    return {
-      reply: parsed.reply || raw,
-      stateUpdate: parsed.stateUpdate || null,
-    };
+    return parseFromObject(parsed);
   } catch {
     // If JSON parsing fails, try to extract JSON from the response
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          reply: parsed.reply || raw,
-          stateUpdate: parsed.stateUpdate || null,
-        };
+        return parseFromObject(parsed);
       } catch {
         // Fall through to plain text
       }
     }
     // Return as plain text reply with no state update
+    console.warn("parseAgentResponse: Could not parse JSON from LLM response");
     return {
       reply: raw,
       stateUpdate: null,

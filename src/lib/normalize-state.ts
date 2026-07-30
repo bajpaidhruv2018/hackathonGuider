@@ -65,8 +65,16 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
   }
 
   // ─── Roadmap ───────────────────────────────────────────────
-  const roadmap = raw.roadmap;
+  let roadmap = raw.roadmap;
   if (roadmap) {
+    // Handle bare array: LLM returned roadmap as [{name, milestones}, ...]
+    if (Array.isArray(roadmap)) {
+      roadmap = { phases: roadmap };
+    }
+    // Handle double-nesting: LLM returned { roadmap: { phases: [...] } }
+    if (roadmap.roadmap && typeof roadmap.roadmap === "object") {
+      roadmap = roadmap.roadmap;
+    }
     const phases = roadmap.phases || roadmap.timeline || [];
     normalized.roadmap = {
       phases: Array.isArray(phases)
@@ -94,9 +102,17 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
   }
 
   // ─── Pitch Outline ─────────────────────────────────────────
-  const pitch =
+  let pitch =
     raw.pitch_outline || raw.pitchOutline || raw.pitch;
   if (pitch) {
+    // Handle bare array: LLM returned pitch as [{heading, content}, ...]
+    if (Array.isArray(pitch)) {
+      pitch = { sections: pitch, stale: false };
+    }
+    // Handle double-nesting: { pitch_outline: { pitch_outline: { sections: [...] } } }
+    if (pitch.pitch_outline && typeof pitch.pitch_outline === "object") {
+      pitch = pitch.pitch_outline;
+    }
     const sections = pitch.sections || pitch.outline || [];
     normalized.pitch_outline = {
       sections: Array.isArray(sections)

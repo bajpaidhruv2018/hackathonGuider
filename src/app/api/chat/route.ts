@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages,
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.7,
       response_format: { type: "json_object" },
     });
@@ -69,8 +69,23 @@ export async function POST(request: NextRequest) {
     // (handles camelCase, snake_case, flattened objects, etc.)
     const stateUpdate = normalizeStateUpdate(rawStateUpdate);
 
-    console.log("----- GROQ RAW REPLY (first 500 chars) -----");
-    console.log(rawReply.slice(0, 500));
+    console.log("----- GROQ RAW REPLY (first 800 chars) -----");
+    console.log(rawReply.slice(0, 800));
+    console.log("----- RAW STATE UPDATE -----");
+    console.log("Keys:", rawStateUpdate ? Object.keys(rawStateUpdate) : "null");
+    if (rawStateUpdate) {
+      const rawAny = rawStateUpdate as any;
+      // Log deeper structure for roadmap and pitch
+      if (rawAny.roadmap) {
+        console.log("rawStateUpdate.roadmap type:", typeof rawAny.roadmap, Array.isArray(rawAny.roadmap) ? "(array)" : "");
+        console.log("rawStateUpdate.roadmap keys:", typeof rawAny.roadmap === "object" && !Array.isArray(rawAny.roadmap) ? Object.keys(rawAny.roadmap) : "N/A");
+      }
+      if (rawAny.pitch_outline || rawAny.pitchOutline || rawAny.pitch) {
+        const p = rawAny.pitch_outline || rawAny.pitchOutline || rawAny.pitch;
+        console.log("rawStateUpdate.pitch type:", typeof p, Array.isArray(p) ? "(array)" : "");
+        console.log("rawStateUpdate.pitch keys:", typeof p === "object" && !Array.isArray(p) ? Object.keys(p) : "N/A");
+      }
+    }
     console.log("----- NORMALIZED STATE UPDATE -----");
     console.log(JSON.stringify(stateUpdate, null, 2));
 

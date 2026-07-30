@@ -94,6 +94,82 @@ export default function Home() {
         // Update session state
         if (data.session) {
           setSession(data.session);
+
+          // Auto-generate roadmap and pitch if scope was just set but they're missing
+          const s = data.session;
+          if (s.scope_critique && (!s.roadmap || !s.pitch_outline)) {
+            console.log("[Auto-generate] Scope set but roadmap/pitch missing, sending follow-up requests...");
+            
+            // Fire follow-up requests in the background (don't block UI)
+            const followUps: Promise<void>[] = [];
+            
+            if (!s.roadmap) {
+              followUps.push(
+                (async () => {
+                  try {
+                    const rmRes = await fetch("/api/chat", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        sessionId: s.id,
+                        message: "Generate a roadmap for the current scope.",
+                      }),
+                    });
+                    if (rmRes.ok) {
+                      const rmData = await rmRes.json();
+                      if (rmData.session) {
+                        setSession((prev) => prev ? { ...prev, roadmap: rmData.session.roadmap } : prev);
+                        // Also add roadmap reply to chat
+                        setMessages((prev) => [
+                          ...prev,
+                          { role: "assistant" as const, content: rmData.reply, timestamp: new Date().toISOString() },
+                        ]);
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Auto-generate roadmap failed:", e);
+                  }
+                })()
+              );
+            }
+
+            if (!s.pitch_outline) {
+              // Wait for roadmap to finish first if also missing, so pitch can reference scope
+              if (!s.roadmap) {
+                await Promise.all(followUps);
+                followUps.length = 0;
+              }
+              followUps.push(
+                (async () => {
+                  try {
+                    const ptRes = await fetch("/api/chat", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        sessionId: s.id,
+                        message: "Create a pitch outline based on the current scope.",
+                      }),
+                    });
+                    if (ptRes.ok) {
+                      const ptData = await ptRes.json();
+                      if (ptData.session) {
+                        setSession((prev) => prev ? { ...prev, pitch_outline: ptData.session.pitch_outline } : prev);
+                        setMessages((prev) => [
+                          ...prev,
+                          { role: "assistant" as const, content: ptData.reply, timestamp: new Date().toISOString() },
+                        ]);
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Auto-generate pitch failed:", e);
+                  }
+                })()
+              );
+            }
+
+            // Don't await — let them run in background
+            Promise.all(followUps).catch(console.error);
+          }
         }
       } catch (err) {
         console.error("Chat error:", err);
