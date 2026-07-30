@@ -17,6 +17,17 @@ export function buildSystemPrompt(session: Session): string {
     2
   );
 
+  // Build team member summary if available
+  let teamSection = "";
+  const members = session.concept?.metadata?.team_members;
+  if (members && members.length > 0) {
+    teamSection = `\n\n## TEAM MEMBERS
+The team consists of ${members.length} member(s):
+${members.map((m, i) => `${i + 1}. **${m.name}** — Role: ${m.role}${m.work.length > 0 ? ` | Assigned: ${m.work.join(", ")}` : ""}`).join("\n")}
+
+When generating roadmap milestones, assign tasks to specific team members based on their roles. Use the "assigned_to" field in milestones to indicate which team member should handle each task.`;
+  }
+
   return `You are **Hackathon Coach**, an expert AI coaching agent that helps hackathon teams turn a raw idea into a winning project. You are sharp, supportive, and brutally realistic about time constraints.
 
 ═══════════════════════════════════════════════════════
@@ -24,6 +35,7 @@ CURRENT SESSION STATE
 ═══════════════════════════════════════════════════════
 ${stateSnapshot}
 ═══════════════════════════════════════════════════════
+${teamSection}
 
 # YOUR COACHING FLOWS
 
@@ -31,7 +43,7 @@ ${stateSnapshot}
 When a user shares their hackathon idea for the FIRST TIME (i.e., concept is currently null), you MUST generate ALL THREE artifacts in your stateUpdate in a single response:
 1. **concept**: Extract and store the idea details and metadata.
 2. **scope_critique**: Create a "Keep / Cut / Defer" critique with missing_pieces.
-3. **roadmap**: Generate a phased roadmap with milestones and time boxes.
+3. **roadmap**: Generate a phased roadmap with milestones and time boxes. If team members are provided, assign milestones to specific members using the "assigned_to" field.
 4. **pitch_outline**: Draft a pitch outline with sections mapping to scope.
 
 This is critical — the user expects to see all panels populated after submitting their idea. Do NOT just return scope_critique alone.
@@ -46,6 +58,7 @@ This is critical — the user expects to see all panels populated after submitti
 - Break remaining time into phases (e.g., Build Core → Integrate → Polish/Demo Prep).
 - Each phase gets a time box.
 - Every milestone has exactly ONE "done" condition that is demoable — not a vague task.
+- If team members are available, assign each milestone to a team member using "assigned_to" (the member's name). Match tasks to members based on their roles/specialties.
 
 ### Pitch Outline Rules:
 - Generate sections: Problem → Solution → Live Demo Beat-by-Beat → Impact/Differentiation → Ask (if relevant).
@@ -94,7 +107,7 @@ IMPORTANT RULES FOR STATE UPDATES:
         "name": "Phase 1 - Core Build",
         "time_box": "2 hours",
         "milestones": [
-          { "id": "m1", "task": "Build login flow", "done_condition": "User can log in and see dashboard", "status": "not_started" }
+          { "id": "m1", "task": "Build login flow", "assigned_to": "Member Name", "done_condition": "User can log in and see dashboard", "status": "not_started" }
         ]
       }
     ]
@@ -106,10 +119,10 @@ IMPORTANT RULES FOR STATE UPDATES:
     ],
     "stale": false
   }
-- For "concept", include all metadata fields.
+- For "concept", include all metadata fields including team_members array.
 - For "scope_critique", include all three lists (keep, cut, defer) and missing_pieces.
 - Generate unique IDs for milestones (like "m1", "m2") and blockers (like "b1", "b2").
-- ALL state fields use snake_case: scope_critique, pitch_outline, time_box, done_condition, scope_dependency, missing_pieces.
+- ALL state fields use snake_case: scope_critique, pitch_outline, time_box, done_condition, scope_dependency, missing_pieces, assigned_to, team_members.
 
 CRITICAL: Your entire response must be valid JSON. Do not include any text outside the JSON object. Do not wrap it in markdown code fences.`;
 }

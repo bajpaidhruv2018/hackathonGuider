@@ -1,7 +1,18 @@
+// ─── Team Members ───────────────────────────────────────────────
+export interface TeamMember {
+  name: string;
+  role: string;        // Frontend, Backend, Design, Full Stack, ML/AI, DevOps, etc.
+  work: string[];      // Assigned tasks/responsibilities
+}
+
 // ─── Concept & Metadata ─────────────────────────────────────────────
 export interface ConceptMetadata {
-  time_remaining: string; // e.g. "6 hours", "2 days"
+  hackathon_name: string;    // Name of the hackathon/project
+  time_remaining: string;    // e.g. "6 hours", "2 days"
+  start_time: string;        // ISO timestamp or descriptive
+  end_time: string;          // ISO timestamp or descriptive
   team_size: number;
+  team_members: TeamMember[];
   tech_stack: string;
   judging_criteria: string;
 }
@@ -11,7 +22,7 @@ export interface Concept {
   metadata: ConceptMetadata;
 }
 
-// ─── Scope Critique (Flow A) ────────────────────────────────────────
+// ─── Scope Critique (Flow A) ────────────────────────────────────
 export interface ScopeItem {
   feature: string;
   rationale: string; // one-line "why this strengthens your demo"
@@ -30,7 +41,8 @@ export type MilestoneStatus = "not_started" | "in_progress" | "done" | "at_risk"
 export interface Milestone {
   id: string;
   task: string;
-  done_condition: string; // demoable "done" definition
+  assigned_to?: string;      // Team member name
+  done_condition: string;    // demoable "done" definition
   status: MilestoneStatus;
 }
 
@@ -76,6 +88,13 @@ export interface Session {
   pitch_outline: PitchOutline | null;
   blockers: Blocker[];
   chat_history: ChatMessage[];
+  updated_at: string;
+}
+
+// ─── Session List Item (for home page history) ──────────────────────
+export interface SessionListItem {
+  id: string;
+  concept: Concept | null;
   updated_at: string;
 }
 
