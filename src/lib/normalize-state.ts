@@ -14,14 +14,41 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
   // ─── Concept ───────────────────────────────────────────────
   const concept = raw.concept;
   if (concept) {
+    const rawMembers =
+      concept.metadata?.team_members ||
+      concept.metadata?.teamMembers ||
+      concept.team_members ||
+      concept.teamMembers ||
+      [];
+
     normalized.concept = {
       raw_text: concept.raw_text || concept.rawText || concept.problem || "",
       metadata: {
+        hackathon_name:
+          concept.metadata?.hackathon_name ||
+          concept.metadata?.hackathonName ||
+          concept.hackathon_name ||
+          concept.hackathonName ||
+          concept.metadata?.name ||
+          concept.name ||
+          "",
         time_remaining:
           concept.metadata?.time_remaining ||
           concept.metadata?.timeRemaining ||
           concept.timeRemaining ||
           concept.time_remaining ||
+          "",
+        start_time:
+          concept.metadata?.start_time ||
+          concept.metadata?.startTime ||
+          concept.start_time ||
+          concept.startTime ||
+          "",
+        end_time:
+          concept.metadata?.end_time ||
+          concept.metadata?.endTime ||
+          concept.end_time ||
+          concept.endTime ||
           "",
         team_size:
           concept.metadata?.team_size ||
@@ -29,6 +56,19 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
           concept.teamSize ||
           concept.team_size ||
           0,
+        team_members: Array.isArray(rawMembers)
+          ? rawMembers.map((m: any) => ({
+              name: m.name || "",
+              role: m.role || m.specialty || "",
+              work: Array.isArray(m.work)
+                ? m.work
+                : Array.isArray(m.tasks)
+                ? m.tasks
+                : typeof m.work === "string"
+                ? [m.work]
+                : [],
+            }))
+          : [],
         tech_stack: normalizeToString(
           concept.metadata?.tech_stack ||
             concept.metadata?.techStack ||
@@ -85,6 +125,8 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
               ? (p.milestones || p.tasks).map((m: any, mi: number) => ({
                   id: m.id || `m${pi + 1}-${mi + 1}`,
                   task: m.task || m.name || m.description || "",
+                  assigned_to:
+                    m.assigned_to || m.assignedTo || m.assignee || undefined,
                   done_condition:
                     m.done_condition ||
                     m.doneCondition ||

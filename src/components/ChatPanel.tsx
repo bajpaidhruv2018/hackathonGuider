@@ -11,25 +11,19 @@ interface ChatPanelProps {
 
 const QUICK_PROMPTS = [
   {
-    icon: "💡",
-    label: "Share an idea",
-    prompt:
-      "Here's my hackathon idea:\n\n**Problem:** \n**Target Users:** \n**Features:** \n\n**Time remaining:** \n**Team size:** \n**Tech stack:** \n**Judging criteria:** ",
+    icon: "psychology",
+    label: "Review Architecture",
+    prompt: "Can you review my current architecture and identify any potential risks?",
   },
   {
-    icon: "🗺️",
-    label: "Build roadmap",
-    prompt: "Generate a roadmap for the current scope.",
+    icon: "route",
+    label: "Adjust Critical Path",
+    prompt: "We are falling behind. Please suggest a revised critical path focusing on core features only.",
   },
   {
-    icon: "🎤",
-    label: "Draft pitch",
-    prompt: "Create a pitch outline based on the current scope.",
-  },
-  {
-    icon: "🚧",
-    label: "Report blocker",
-    prompt: "I'm stuck on: ",
+    icon: "bug_report",
+    label: "Log Anomaly",
+    prompt: "I've encountered a blocker: ",
   },
 ];
 
@@ -39,8 +33,17 @@ export default function ChatPanel({
   isLoading,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
+  const [time, setTime] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setTime(new Date().toISOString().substring(11, 19));
+    const interval = setInterval(() => {
+      setTime(new Date().toISOString().substring(11, 19));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -82,93 +85,100 @@ export default function ChatPanel({
     }
   };
 
-  // Richer markdown rendering
+  // Richer Markdown Renderer for Coach responses
   const renderMarkdown = (text: string) => {
     const lines = text.split("\n");
     const elements: React.ReactNode[] = [];
-    let listItems: string[] = [];
-    let numberedItems: string[] = [];
+    let listItems: React.ReactNode[] = [];
+    let isOrderedList = false;
 
     const flushList = () => {
       if (listItems.length > 0) {
-        elements.push(
-          <ul key={`ul-${elements.length}`} className="msg-list">
-            {listItems.map((item, i) => (
-              <li key={i}>{formatInline(item)}</li>
-            ))}
-          </ul>
-        );
+        if (isOrderedList) {
+          elements.push(
+            <ol key={`ol-${elements.length}`} className="list-decimal pl-6 mt-2 space-y-1 font-body-lg text-on-surface">
+              {listItems}
+            </ol>
+          );
+        } else {
+          elements.push(
+            <ul key={`ul-${elements.length}`} className="list-disc pl-6 mt-2 space-y-1 font-body-lg text-on-surface">
+              {listItems}
+            </ul>
+          );
+        }
         listItems = [];
-      }
-      if (numberedItems.length > 0) {
-        elements.push(
-          <ol key={`ol-${elements.length}`} className="msg-ordered-list">
-            {numberedItems.map((item, i) => (
-              <li key={i}>{formatInline(item)}</li>
-            ))}
-          </ol>
-        );
-        numberedItems = [];
       }
     };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Bullet list
-      if (line.match(/^[-*•]\s/)) {
-        if (numberedItems.length > 0) flushList();
-        listItems.push(line.replace(/^[-*•]\s/, ""));
-        continue;
-      }
-
-      // Numbered list
-      if (line.match(/^\d+\.\s/)) {
-        if (listItems.length > 0) flushList();
-        numberedItems.push(line.replace(/^\d+\.\s/, ""));
-        continue;
-      }
-
-      flushList();
-
-      // Horizontal rule
-      if (line.match(/^---+$/)) {
-        elements.push(<hr key={i} className="msg-hr" />);
-      } else if (line.match(/^###\s/)) {
-        elements.push(
-          <h5 key={i} className="msg-h3">
-            {formatInline(line.replace(/^###\s/, ""))}
-          </h5>
-        );
-      } else if (line.match(/^##\s/)) {
-        elements.push(
-          <h4 key={i} className="msg-h2">
-            {formatInline(line.replace(/^##\s/, ""))}
-          </h4>
-        );
-      } else if (line.match(/^#\s/)) {
-        elements.push(
-          <h3 key={i} className="msg-h1">
-            {formatInline(line.replace(/^#\s/, ""))}
-          </h3>
-        );
-      } else if (line.trim() === "") {
-        // Skip consecutive blank lines
-        if (elements.length > 0) {
-          const last = elements[elements.length - 1];
-          if (last && typeof last === "object" && "type" in last && last.type !== "br") {
-            elements.push(<div key={i} className="msg-spacer" />);
-          }
+      if (line.match(/^```/)) {
+        flushList();
+        const lang = line.replace(/^```/, "").trim();
+        let code = "";
+        i++;
+        while (i < lines.length && !lines[i].match(/^```/)) {
+          code += lines[i] + "\n";
+          i++;
         }
-      } else {
         elements.push(
-          <p key={i} className="msg-p">
-            {formatInline(line)}
-          </p>
+          <div key={`code-${i}`} className="mt-4 mb-2 w-full">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded p-sm font-data-mono text-[13px] text-on-surface-variant overflow-x-auto shadow-sm">
+              <pre><code>{code}</code></pre>
+            </div>
+          </div>
         );
+      } else if (line.match(/^[-*•]\s/)) {
+        isOrderedList = false;
+        listItems.push(
+          <li key={`li-${i}`}>
+            {formatInline(line.replace(/^[-*•]\s/, ""))}
+          </li>
+        );
+      } else if (line.match(/^\d+\.\s/)) {
+        isOrderedList = true;
+        listItems.push(
+          <li key={`oli-${i}`}>
+            {formatInline(line.replace(/^\d+\.\s/, ""))}
+          </li>
+        );
+      } else {
+        flushList();
+        
+        if (line.match(/^###\s/)) {
+          elements.push(
+            <h5 key={`h3-${i}`} className="mt-4 mb-2 font-headline-md text-[18px] text-on-surface font-semibold">
+              {formatInline(line.replace(/^###\s/, ""))}
+            </h5>
+          );
+        } else if (line.match(/^##\s/)) {
+          elements.push(
+            <h4 key={`h2-${i}`} className="mt-5 mb-2 font-headline-md text-[20px] text-on-surface font-bold text-primary">
+              {formatInline(line.replace(/^##\s/, ""))}
+            </h4>
+          );
+        } else if (line.match(/^#\s/)) {
+          elements.push(
+            <h3 key={`h1-${i}`} className="mt-6 mb-3 font-display-lg text-[24px] text-on-background font-bold tracking-tight">
+              {formatInline(line.replace(/^#\s/, ""))}
+            </h3>
+          );
+        } else if (line.trim() === "") {
+          // Add a small spacer for empty lines
+          if (elements.length > 0 && elements[elements.length - 1]?.type !== 'br') {
+             elements.push(<div key={`br-${i}`} className="h-2"></div>);
+          }
+        } else {
+          elements.push(
+            <p key={`p-${i}`} className="mt-2 font-body-lg text-on-surface leading-relaxed">
+              {formatInline(line)}
+            </p>
+          );
+        }
       }
     }
-
     flushList();
     return elements;
   };
@@ -178,254 +188,132 @@ export default function ChatPanel({
     const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>;
+        return <strong key={i} className="text-on-surface font-semibold text-primary/90">{part.slice(2, -2)}</strong>;
       }
       if (part.startsWith("`") && part.endsWith("`")) {
         return (
-          <code key={i} className="msg-inline-code">
+          <code key={i} className="font-data-mono text-[13px] text-primary bg-primary/10 px-1 py-0.5 rounded border border-primary/20">
             {part.slice(1, -1)}
           </code>
         );
       }
       if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-        return <em key={i}>{part.slice(1, -1)}</em>;
+        return <em key={i} className="italic text-on-surface-variant">{part.slice(1, -1)}</em>;
       }
-      return part;
+      return <span key={i}>{part}</span>;
     });
   };
 
   return (
-    <div className="chat-panel">
-      {/* Header */}
-      <div className="chat-header">
-        <div className="chat-header-brand">
-          <div className="brand-logo">
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-              <defs>
-                <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32">
-                  <stop offset="0%" stopColor="#38bdf8" />
-                  <stop offset="100%" stopColor="#a78bfa" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M16 2L28 8v8c0 7.732-5.268 14-12 16C9.268 30 4 23.732 4 16V8l12-6z"
-                stroke="url(#logo-grad)"
-                strokeWidth="2"
-                fill="none"
-              />
-              <path
-                d="M12 16l3 3 5-6"
-                stroke="url(#logo-grad)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-          </div>
-          <div className="brand-text">
-            <h1 className="brand-title">Hackathon Coach</h1>
-            <span className="brand-subtitle">AI-powered project coaching</span>
-          </div>
+    <div className="flex flex-col h-full w-full">
+      {/* Chat Header */}
+      <div className="px-lg py-md border-b border-outline-variant flex items-center justify-between bg-surface-container-low sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-sm">
+          <span className="material-symbols-outlined text-primary text-[20px]">psychology</span>
+          <h2 className="font-headline-md text-headline-md text-on-surface uppercase">COACH UPLINK</h2>
         </div>
-        <div className="header-status">
-          <span className="status-dot" />
-          <span className="status-text">Online</span>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Live Uptime: {time}Z</span>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="chat-messages">
+      {/* Chat History (Scrollable) */}
+      <div className="flex-1 overflow-y-auto p-lg space-y-xl flex flex-col scroll-smooth">
         {messages.length === 0 && !isLoading && (
-          <div className="chat-welcome">
-            <div className="welcome-glow" />
-            <div className="welcome-icon-container">
-              <div className="welcome-icon-ring" />
-              <div className="welcome-icon">🏗️</div>
-            </div>
-            <h2>Welcome to Hackathon Coach</h2>
-            <p className="welcome-desc">
-              Your AI co-pilot for hackathon success. Paste your idea below and
-              I&apos;ll help you scope it, build a roadmap, draft your pitch, and
-              keep you on track.
+          <div className="flex flex-col items-center justify-center h-full text-center max-w-[448px] mx-auto space-y-md">
+            <span className="material-symbols-outlined text-[48px] text-primary/50">psychology</span>
+            <h3 className="font-headline-md text-on-surface">UPLINK ESTABLISHED</h3>
+            <p className="font-body-sm text-on-surface-variant">
+              Your AI co-pilot is ready. Provide mission parameters or request structural analysis.
             </p>
-            <div className="welcome-hints">
-              <div className="hint">
-                <span className="hint-icon">⏱️</span>
-                <div className="hint-text">
-                  <span className="hint-label">Time remaining</span>
-                  <span className="hint-desc">Hours or days left</span>
-                </div>
-              </div>
-              <div className="hint">
-                <span className="hint-icon">👥</span>
-                <div className="hint-text">
-                  <span className="hint-label">Team size</span>
-                  <span className="hint-desc">Number of devs</span>
-                </div>
-              </div>
-              <div className="hint">
-                <span className="hint-icon">🛠️</span>
-                <div className="hint-text">
-                  <span className="hint-label">Tech stack</span>
-                  <span className="hint-desc">Languages & tools</span>
-                </div>
-              </div>
-              <div className="hint">
-                <span className="hint-icon">🏆</span>
-                <div className="hint-text">
-                  <span className="hint-label">Judging criteria</span>
-                  <span className="hint-desc">What wins prizes</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="quick-actions">
+            <div className="flex flex-col gap-sm w-full mt-lg">
               {QUICK_PROMPTS.map((qp, i) => (
                 <button
                   key={i}
-                  className="quick-action-btn"
+                  className="flex items-center gap-sm px-md py-sm bg-surface-container hover:bg-surface-container-high border border-outline-variant rounded transition-colors text-left"
                   onClick={() => handleQuickPrompt(qp.prompt)}
                 >
-                  <span className="qa-icon">{qp.icon}</span>
-                  <span className="qa-label">{qp.label}</span>
-                  <span className="qa-arrow">→</span>
+                  <span className="material-symbols-outlined text-primary text-[18px]">{qp.icon}</span>
+                  <span className="font-data-mono text-data-mono text-on-surface uppercase">{qp.label}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`chat-message ${msg.role === "user" ? "user" : "assistant"}`}
-          >
-            <div className="message-avatar">
-              {msg.role === "user" ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L15 8H9L12 2Z" />
-                  <rect x="6" y="8" width="12" height="10" rx="2" />
-                  <circle cx="9" cy="13" r="1" fill="currentColor" />
-                  <circle cx="15" cy="13" r="1" fill="currentColor" />
-                </svg>
-              )}
-            </div>
-            <div className="message-bubble">
-              <div className="message-meta">
-                <span className="message-sender">
-                  {msg.role === "user" ? "You" : "Coach"}
-                </span>
-                <span className="message-time">
-                  {new Date(msg.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+        {messages.map((msg, i) => {
+          const isUser = msg.role === "user";
+          const time = new Date(msg.timestamp).toISOString().substring(11, 19) + 'Z';
+          
+          return (
+            <div key={i} className={`flex flex-col gap-sm max-w-[85%] relative ${isUser ? 'self-end items-end' : ''}`}>
+              <div className={`flex items-center gap-2 mb-1 ${isUser ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-6 h-6 rounded flex items-center justify-center border ${
+                  isUser ? 'bg-secondary/20 border-secondary/30' : 'bg-primary/20 border-primary/30'
+                }`}>
+                  <span className={`material-symbols-outlined text-[14px] ${isUser ? 'text-secondary' : 'text-primary'}`}>
+                    {isUser ? 'person' : 'smart_toy'}
+                  </span>
+                </div>
+                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">{isUser ? 'YOU' : 'COACH'}</span>
+                <span className={`font-data-mono text-[10px] text-outline ${isUser ? 'mr-2' : 'ml-2'}`}>{time}</span>
               </div>
-              <div className="message-content">
-                {msg.role === "assistant"
-                  ? renderMarkdown(msg.content)
-                  : msg.content}
+              
+              <div className={`text-body-lg text-on-surface leading-relaxed ${
+                isUser 
+                  ? 'bg-surface-container-low p-md rounded-lg rounded-tr-none border border-outline-variant shadow-sm' 
+                  : 'pl-8'
+              }`}>
+                {isUser ? msg.content : renderMarkdown(msg.content)}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {isLoading && (
-          <div className="chat-message assistant">
-            <div className="message-avatar">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L15 8H9L12 2Z" />
-                <rect x="6" y="8" width="12" height="10" rx="2" />
-                <circle cx="9" cy="13" r="1" fill="currentColor" />
-                <circle cx="15" cy="13" r="1" fill="currentColor" />
-              </svg>
+          <div className="flex flex-col gap-sm max-w-[85%] relative">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-6 h-6 rounded bg-primary/20 border border-primary/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>
+              </div>
+              <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">COACH</span>
             </div>
-            <div className="message-bubble">
-              <div className="message-meta">
-                <span className="message-sender">Coach</span>
-                <span className="message-time">thinking...</span>
-              </div>
-              <div className="message-content">
-                <div className="typing-indicator">
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                </div>
-              </div>
+            <div className="pl-8 flex gap-1 items-center h-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></span>
             </div>
           </div>
         )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Actions (when in conversation) */}
-      {messages.length > 0 && !isLoading && (
-        <div className="inline-quick-actions">
-          {QUICK_PROMPTS.slice(1).map((qp, i) => (
-            <button
-              key={i}
-              className="inline-qa-btn"
-              onClick={() => handleQuickPrompt(qp.prompt)}
-            >
-              <span>{qp.icon}</span>
-              <span>{qp.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Input */}
-      <form className="chat-input-form" onSubmit={handleSubmit}>
-        <div className="input-wrapper">
-          <textarea
-            ref={textareaRef}
-            className="chat-input"
+      {/* Chat Input */}
+      <div className="p-md bg-surface-container border-t border-outline-variant shadow-lg relative z-20">
+        <form onSubmit={handleSubmit} className="relative flex items-center bg-surface-container-lowest rounded border border-outline-variant focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50 transition-all shadow-sm">
+          <span className="material-symbols-outlined text-outline absolute left-md">terminal</span>
+          <input 
+            type="text" 
+            className="w-full bg-transparent pl-12 pr-12 py-md font-data-mono text-body-md text-on-surface focus:outline-none placeholder-outline disabled:opacity-50"
+            placeholder={isLoading ? "Awaiting response..." : "Enter command or query..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              messages.length === 0
-                ? "Paste your hackathon idea here..."
-                : "Type a message... (Shift+Enter for new line)"
-            }
-            rows={1}
             disabled={isLoading}
-            id="chat-input"
           />
-          <button
-            type="submit"
-            className="send-button"
+          <button 
+            type="submit" 
             disabled={!input.trim() || isLoading}
-            id="send-button"
+            className="absolute right-md w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary hover:bg-primary-container disabled:bg-surface-variant disabled:text-on-surface-variant transition-colors shadow-sm"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 2L11 13" />
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-            </svg>
+            <span className="material-symbols-outlined text-[18px]">send</span>
           </button>
+        </form>
+        <div className="flex justify-between items-center mt-2 px-1">
+          <span className="font-label-caps text-label-caps text-outline uppercase">{isLoading ? 'PROCESSING_UPLINK' : 'SYS_READY // AWAITING_INPUT'}</span>
+          <span className="font-data-mono text-[10px] text-outline">Press Enter to send</span>
         </div>
-        <div className="input-hint">
-          <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

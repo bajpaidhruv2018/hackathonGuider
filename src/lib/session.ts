@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./supabase";
-import { Session, StateUpdate, ChatMessage } from "./types";
+import { Session, SessionListItem, StateUpdate, ChatMessage, Concept } from "./types";
 import { normalizeStateUpdate } from "./normalize-state";
 
 const TABLE = "sessions";
@@ -30,13 +30,35 @@ function normalizeSession(raw: any): Session {
 }
 
 /**
- * Create a new coaching session.
+ * List all sessions, ordered by most recently updated.
+ * Returns lightweight items for the home page history grid.
  */
-export async function createSession(): Promise<Session> {
+export async function listSessions(): Promise<SessionListItem[]> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("id, concept, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(`Failed to list sessions: ${error.message}`);
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    concept: row.concept || null,
+    updated_at: row.updated_at,
+  }));
+}
+
+/**
+ * Create a new coaching session, optionally with initial concept data.
+ */
+export async function createSession(initialConcept?: Concept): Promise<Session> {
   const supabase = getSupabaseClient();
 
   const newSession = {
-    concept: null,
+    concept: initialConcept || null,
     scope_critique: null,
     roadmap: null,
     pitch_outline: null,
@@ -117,4 +139,3 @@ export async function updateSession(
   if (error) throw new Error(`Failed to update session: ${error.message}`);
   return normalizeSession(data);
 }
-
