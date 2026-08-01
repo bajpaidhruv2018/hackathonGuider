@@ -167,7 +167,7 @@ export default function ChatPanel({
           );
         } else if (line.trim() === "") {
           // Add a small spacer for empty lines
-          if (elements.length > 0 && elements[elements.length - 1]?.type !== 'br') {
+          if (elements.length > 0) {
              elements.push(<div key={`br-${i}`} className="h-2"></div>);
           }
         } else {

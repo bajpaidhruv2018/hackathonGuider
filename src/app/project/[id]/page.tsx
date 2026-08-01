@@ -4,6 +4,26 @@ import { useState, useEffect, useCallback, use } from "react";
 import { Session, ChatMessage, ChatResponse } from "@/lib/types";
 import ChatPanel from "@/components/ChatPanel";
 import ProjectStatePanel from "@/components/ProjectStatePanel";
+import ScopeView from "@/components/ScopeView";
+import RoadmapView from "@/components/RoadmapView";
+import PitchView from "@/components/PitchView";
+import BlockerView from "@/components/BlockerView";
+
+type TabId = "overview" | "scope" | "roadmap" | "pitch" | "blockers";
+
+interface TabDef {
+  id: TabId;
+  label: string;
+  icon: string;
+}
+
+const TABS: TabDef[] = [
+  { id: "overview", label: "Overview", icon: "dashboard" },
+  { id: "scope", label: "Scope", icon: "crisis_alert" },
+  { id: "roadmap", label: "Roadmap", icon: "route" },
+  { id: "pitch", label: "Pitch", icon: "mic" },
+  { id: "blockers", label: "Blockers", icon: "bug_report" },
+];
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -12,6 +32,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   // Load session by ID
   useEffect(() => {
@@ -159,6 +180,32 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     [session, isLoading]
   );
 
+  const handleRegeneratePitch = () => {
+    handleSendMessage(
+      "My scope has changed. Please regenerate the pitch outline to match the current scope."
+    );
+  };
+
+  // Badge helpers
+  const activeBlockerCount = session?.blockers?.filter(b => !b.resolved && b.severity === "critical").length || 0;
+  const isPitchStale = session?.pitch_outline?.stale || false;
+
+  function getTabBadge(tabId: TabId): React.ReactNode {
+    if (tabId === "blockers" && activeBlockerCount > 0) {
+      return (
+        <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center bg-error text-on-error font-data-mono text-[9px] rounded-full px-1 shadow-sm">
+          {activeBlockerCount}
+        </span>
+      );
+    }
+    if (tabId === "pitch" && isPitchStale) {
+      return (
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-tertiary rounded-full shadow-sm"></span>
+      );
+    }
+    return null;
+  }
+
   if (initializing) {
     return (
       <div className="flex w-full h-[calc(100vh-64px)] items-center justify-center bg-surface">
@@ -204,12 +251,59 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           />
         </div>
 
-        {/* RIGHT PANE: MISSION STATE (40%) */}
+        {/* RIGHT PANE: TABBED MISSION STATE (40%) */}
         <div className="w-full md:w-[40%] flex flex-col bg-surface-container-lowest overflow-hidden relative shadow-xl">
-          <ProjectStatePanel
-            session={session}
-            onSendMessage={handleSendMessage}
-          />
+          {/* Tab Bar */}
+          <div className="flex items-center bg-surface-container border-b border-outline-variant px-sm shrink-0 overflow-x-auto">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    relative flex items-center gap-1.5 px-md py-sm transition-colors shrink-0
+                    font-label-caps text-[10px] uppercase tracking-widest
+                    ${isActive
+                      ? 'text-primary border-b-2 border-primary'
+                      : 'text-on-surface-variant hover:text-on-surface border-b-2 border-transparent hover:border-outline-variant/50'
+                    }
+                  `}
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${isActive ? 'text-primary' : ''}`}>{tab.icon}</span>
+                  <span className="hidden lg:inline">{tab.label}</span>
+                  {getTabBadge(tab.id)}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full tab-content-enter" key={activeTab}>
+              {activeTab === "overview" && (
+                <ProjectStatePanel
+                  session={session}
+                  onSendMessage={handleSendMessage}
+                />
+              )}
+              {activeTab === "scope" && (
+                <ScopeView critique={session?.scope_critique || null} />
+              )}
+              {activeTab === "roadmap" && (
+                <RoadmapView roadmap={session?.roadmap || null} />
+              )}
+              {activeTab === "pitch" && (
+                <PitchView
+                  pitchOutline={session?.pitch_outline || null}
+                  onRegenerate={handleRegeneratePitch}
+                />
+              )}
+              {activeTab === "blockers" && (
+                <BlockerView blockers={session?.blockers || []} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

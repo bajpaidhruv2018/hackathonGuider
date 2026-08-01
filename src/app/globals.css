@@ -116,4 +116,28 @@
   ::-webkit-scrollbar {
     display: none;
   }
+
+  /* Tab content transitions */
+  .tab-content-enter {
+    animation: tabFadeIn 0.2s ease-out;
+  }
+
+  @keyframes tabFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Hide default details marker */
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+  details > summary {
+    list-style: none;
+  }
 }
