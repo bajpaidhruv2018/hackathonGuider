@@ -5,9 +5,16 @@ import { buildSystemPrompt, parseAgentResponse } from "@/lib/system-prompt";
 import { normalizeStateUpdate } from "@/lib/normalize-state";
 import { ChatMessage } from "@/lib/types";
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+export const dynamic = "force-dynamic";
+
+let groqClient: Groq | null = null;
+function getGroqClient(): Groq {
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return groqClient;
+}
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
     messages.push({ role: "user", content: message });
 
     // Call Groq (using Llama 3.3 70B — fast and capable)
-    const response = await groq.chat.completions.create({
+    const response = await getGroqClient().chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages,
       max_tokens: 8192,

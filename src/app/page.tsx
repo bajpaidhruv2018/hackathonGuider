@@ -2,16 +2,27 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { SessionListItem } from "@/lib/types";
+import { SessionListItem, CrewStatus } from "@/lib/types";
+
+type ViewMode = "active" | "archived";
+
+const crewDotColors: Record<CrewStatus, string> = {
+  ON_TRACK: "bg-secondary",
+  AT_RISK: "bg-primary",
+  BLOCKED: "bg-error",
+  DONE: "bg-secondary",
+};
 
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("active");
 
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const res = await fetch("/api/session");
+        const status = viewMode === "active" ? "active" : "completed";
+        const res = await fetch(`/api/session?status=${status}`);
         if (res.ok) {
           const data = await res.json();
           setSessions(Array.isArray(data) ? data : []);
@@ -22,8 +33,9 @@ export default function HomePage() {
         setLoading(false);
       }
     }
+    setLoading(true);
     fetchSessions();
-  }, []);
+  }, [viewMode]);
 
   const getProjectName = (session: SessionListItem) => {
     if (!session.concept) return "Untitled Project";
@@ -36,10 +48,14 @@ export default function HomePage() {
     );
   };
 
-  const getTeamSize = (session: SessionListItem) => {
-    if (!session.concept) return 0;
+  const getTeamMembers = (session: SessionListItem) => {
+    if (!session.concept) return [];
     const meta = session.concept.metadata as any;
-    return meta?.team_size || meta?.teamSize || meta?.team_members?.length || 0;
+    return meta?.team_members || meta?.teamMembers || [];
+  };
+
+  const getTeamSize = (session: SessionListItem) => {
+    return getTeamMembers(session).length || 0;
   };
 
   const getHackathonEndTime = (session: SessionListItem) => {
@@ -66,6 +82,91 @@ export default function HomePage() {
     };
   };
 
+  // Derive real status from session data
+  const getSessionStatus = (session: SessionListItem) => {
+    if (session.status === "completed") return "DONE";
+    
+    const blockers = session.blockers || [];
+    const hasCritical = blockers.some(b => !b.resolved && b.severity === "critical");
+    if (hasCritical) return "BLOCKED";
+    
+    const hasBlockers = blockers.some(b => !b.resolved);
+    if (hasBlockers) return "AT_RISK";
+    
+    return "ON_TRACK";
+  };
+
+  const getStatusColors = (status: string) => {
+    switch (status) {
+      case "DONE":
+        return {
+          gradient: "from-secondary to-primary-container",
+          statusBg: "bg-secondary/10",
+          statusText: "text-secondary border-secondary/20",
+          timer: "text-secondary",
+          bar: "bg-secondary",
+          barShadow: "",
+        };
+      case "BLOCKED":
+        return {
+          gradient: "from-error to-tertiary",
+          statusBg: "bg-error/10",
+          statusText: "text-error border-error/20",
+          timer: "text-error",
+          bar: "bg-error",
+          barShadow: "shadow-[0_0_4px_rgba(255,180,171,0.5)]",
+        };
+      case "AT_RISK":
+        return {
+          gradient: "from-outline to-surface-variant",
+          statusBg: "bg-primary/10",
+          statusText: "text-primary border-primary/20",
+          timer: "text-primary",
+          bar: "bg-primary",
+          barShadow: "shadow-[0_0_4px_rgba(195,192,255,0.3)]",
+        };
+      default: // ON_TRACK
+        return {
+          gradient: "from-primary to-secondary",
+          statusBg: "bg-primary/10",
+          statusText: "text-primary border-primary/20",
+          timer: "text-on-surface",
+          bar: "bg-primary",
+          barShadow: "shadow-[0_0_4px_rgba(195,192,255,0.5)]",
+        };
+    }
+  };
+
+  // Calculate progress from time
+  const getProgress = (session: SessionListItem) => {
+    if (session.status === "completed") return 100;
+    const meta = session.concept?.metadata as any;
+    if (!meta?.start_time || !meta?.end_time) return 0;
+    const start = new Date(meta.start_time).getTime();
+    const end = new Date(meta.end_time).getTime();
+    const now = Date.now();
+    const total = end - start;
+    if (total <= 0) return 100;
+    return Math.min(100, Math.max(0, ((now - start) / total) * 100));
+  };
+
+  // Get current phase from roadmap
+  const getCurrentPhase = (session: SessionListItem) => {
+    const roadmap = session.roadmap;
+    if (!roadmap?.phases) return "Setup";
+    const active = roadmap.phases.find(p =>
+      p.milestones?.some(m => m.status === "in_progress")
+    );
+    if (active) return active.name.split(" ")[0];
+    const notStarted = roadmap.phases.find(p =>
+      p.milestones?.some(m => m.status === "not_started")
+    );
+    if (notStarted) return notStarted.name.split(" ")[0];
+    return "Complete";
+  };
+
+  const isArchiveView = viewMode === "archived";
+
   return (
     <div className="flex flex-col w-full relative">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background pointer-events-none"></div>
@@ -83,9 +184,14 @@ export default function HomePage() {
               <span className="material-symbols-outlined text-[18px] group-hover:rotate-90 transition-transform">add</span>
               New Project
             </Link>
-            <button className="bg-transparent hover:bg-surface-container-high text-on-surface border border-outline-variant px-lg py-sm rounded font-data-mono text-data-mono shadow-sm transition-colors flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[18px]">history</span>
-              View Archives
+            <button 
+              onClick={() => setViewMode(isArchiveView ? "active" : "archived")}
+              className={`bg-transparent hover:bg-surface-container-high border border-outline-variant px-lg py-sm rounded font-data-mono text-data-mono shadow-sm transition-colors flex items-center gap-sm ${
+                isArchiveView ? 'text-secondary bg-secondary/5 border-secondary/30' : 'text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">{isArchiveView ? 'rocket_launch' : 'history'}</span>
+              {isArchiveView ? 'Active Missions' : 'View Archives'}
             </button>
           </div>
         </div>
@@ -108,8 +214,12 @@ export default function HomePage() {
       <section className="w-full max-w-[1440px] mx-auto px-lg pb-xl z-10 relative">
         <div className="flex items-end justify-between mb-lg pb-sm border-b border-outline-variant/30">
           <div className="flex flex-col gap-xs">
-            <h2 className="font-headline-md text-headline-md text-on-surface">Active Missions</h2>
-            <span className="font-data-mono text-data-mono text-on-surface-variant text-[12px] opacity-70">Showing {sessions.length} active deployments</span>
+            <h2 className="font-headline-md text-headline-md text-on-surface">
+              {isArchiveView ? 'Mission Archives' : 'Active Missions'}
+            </h2>
+            <span className="font-data-mono text-data-mono text-on-surface-variant text-[12px] opacity-70">
+              Showing {sessions.length} {isArchiveView ? 'archived' : 'active'} deployments
+            </span>
           </div>
           <div className="flex items-center gap-xs">
             <span className="font-label-caps text-label-caps text-on-surface-variant">SORT BY:</span>
@@ -122,80 +232,51 @@ export default function HomePage() {
         </div>
 
         {loading ? (
-          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">Loading deployments...</div>
+          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
+            {isArchiveView ? 'Loading archives...' : 'Loading deployments...'}
+          </div>
         ) : sessions.length === 0 ? (
-          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">No active missions found. Initialize a new project.</div>
+          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
+            {isArchiveView 
+              ? 'No archived missions found. Complete a mission to see it here.' 
+              : 'No active missions found. Initialize a new project.'}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-            {sessions.map((session, index) => {
-              const teamSize = getTeamSize(session);
+            {sessions.map((session) => {
               const name = getProjectName(session);
               const endTime = getHackathonEndTime(session);
               const { text: timeText, isPast } = calculateTimeRemaining(endTime);
               const idAbbr = session.id.slice(0, 8).toUpperCase();
-              
-              // We'll cycle through some visual styles based on index to mimic the mockups
-              const styleIdx = index % 4;
-              const isError = styleIdx === 1 && !isPast;
-              const isBlocked = styleIdx === 2 && !isPast;
-              
-              let topGradient = "from-primary to-secondary";
-              let statusBg = "bg-primary/10";
-              let statusText = "text-primary border-primary/20";
-              let dotBg = "bg-primary";
-              let statusLabel = "ON TRACK";
-              let progressBarBg = "bg-primary";
-              let progressShadow = "shadow-[0_0_4px_rgba(195,192,255,0.5)]";
-              let progressWidth = "65%";
-              
-              if (isPast) {
-                topGradient = "from-secondary to-primary-container";
-                statusBg = "bg-secondary/10";
-                statusText = "text-secondary border-secondary/20";
-                statusLabel = "DONE";
-                progressBarBg = "bg-secondary";
-                progressShadow = "";
-                progressWidth = "100%";
-              } else if (isError) {
-                topGradient = "from-error to-tertiary";
-                statusBg = "bg-error/10";
-                statusText = "text-error border-error/20";
-                dotBg = "bg-error";
-                statusLabel = "AT RISK";
-                progressBarBg = "bg-error";
-                progressShadow = "shadow-[0_0_4px_rgba(255,180,171,0.5)]";
-                progressWidth = "85%";
-              } else if (isBlocked) {
-                topGradient = "from-outline to-surface-variant";
-                statusBg = "bg-surface-variant";
-                statusText = "text-on-surface-variant border-transparent";
-                statusLabel = "BLOCKED";
-                progressBarBg = "bg-outline";
-                progressShadow = "";
-                progressWidth = "30%";
-              }
+              const teamMembers = getTeamMembers(session);
+              const teamSize = teamMembers.length || getTeamSize(session);
+              const status = getSessionStatus(session);
+              const colors = getStatusColors(status);
+              const progress = getProgress(session);
+              const phase = getCurrentPhase(session);
+              const isDone = status === "DONE" || isPast;
 
               return (
                 <Link
                   key={session.id}
                   href={`/project/${session.id}`}
-                  className={`group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden ${isPast ? 'opacity-75' : ''}`}
+                  className={`group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden ${isDone ? 'opacity-75' : ''}`}
                 >
-                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${topGradient}`}></div>
+                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${colors.gradient}`}></div>
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col gap-xs w-2/3">
-                      <span className={`font-label-caps text-label-caps ${isPast ? 'text-secondary' : isError ? 'text-error' : isBlocked ? 'text-on-surface-variant' : 'text-primary'} uppercase truncate`}>PRJ-{idAbbr}</span>
-                      <h3 className={`font-headline-md text-headline-md text-on-surface truncate ${isPast ? 'line-through decoration-secondary/50' : ''}`}>{name}</h3>
+                      <span className={`font-label-caps text-label-caps ${colors.statusText.split(' ')[0]} uppercase truncate`}>PRJ-{idAbbr}</span>
+                      <h3 className={`font-headline-md text-headline-md text-on-surface truncate ${isDone ? 'line-through decoration-secondary/50' : ''}`}>{name}</h3>
                     </div>
-                    <div className={`flex items-center gap-1 px-sm py-[2px] rounded font-label-caps text-label-caps border ${statusBg} ${statusText}`}>
-                      {isPast ? (
+                    <div className={`flex items-center gap-1 px-sm py-[2px] rounded font-label-caps text-label-caps border ${colors.statusBg} ${colors.statusText}`}>
+                      {status === "DONE" ? (
                         <span className="material-symbols-outlined text-[12px]">check</span>
-                      ) : isBlocked ? (
+                      ) : status === "BLOCKED" ? (
                         <span className="material-symbols-outlined text-[12px]">block</span>
                       ) : (
-                        <span className={`w-1.5 h-1.5 rounded-full ${dotBg}`}></span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${colors.bar}`}></span>
                       )}
-                      {statusLabel}
+                      {status}
                     </div>
                   </div>
                   
@@ -208,19 +289,37 @@ export default function HomePage() {
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="font-label-caps text-label-caps text-on-surface-variant">CURRENT PHASE</span>
-                      <span className="font-data-mono text-data-mono text-on-surface truncate">{isPast ? 'Archived' : 'Active Sprint'}</span>
+                      <span className="font-data-mono text-data-mono text-on-surface truncate">{isDone ? 'Archived' : phase}</span>
                     </div>
                   </div>
+
+                  {/* Crew Status Strip */}
+                  {teamMembers.length > 0 && (
+                    <div className="flex items-center gap-1 px-1">
+                      <span className="font-label-caps text-[8px] text-outline mr-1">CREW</span>
+                      {teamMembers.map((member: any, i: number) => {
+                        const memberStatus: CrewStatus = member.status || "ON_TRACK";
+                        const dotColor = isDone ? "bg-secondary" : crewDotColors[memberStatus] || "bg-secondary";
+                        return (
+                          <div
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${dotColor} ${memberStatus === "BLOCKED" && !isDone ? "animate-pulse" : ""}`}
+                            title={`${member.name}: ${memberStatus}`}
+                          ></div>
+                        );
+                      })}
+                    </div>
+                  )}
                   
                   <div className="mt-auto pt-md border-t border-outline-variant/30 flex flex-col gap-2">
                     <div className="flex justify-between items-end">
-                      <span className="font-label-caps text-label-caps text-on-surface-variant">{isPast ? 'STATUS' : 'T-MINUS'}</span>
-                      <span className={`font-timer-lg text-[24px] leading-none tracking-tight ${isPast ? 'text-secondary' : isError ? 'text-error' : isBlocked ? 'text-on-surface-variant' : 'text-on-surface'} font-semibold`}>
+                      <span className="font-label-caps text-label-caps text-on-surface-variant">{isDone ? 'STATUS' : 'T-MINUS'}</span>
+                      <span className={`font-timer-lg text-[24px] leading-none tracking-tight ${colors.timer} font-semibold`}>
                         {timeText}
                       </span>
                     </div>
                     <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-                      <div className={`h-full ${progressBarBg} rounded-full ${progressShadow}`} style={{ width: progressWidth }}></div>
+                      <div className={`h-full ${colors.bar} rounded-full ${colors.barShadow}`} style={{ width: `${progress}%` }}></div>
                     </div>
                   </div>
                 </Link>

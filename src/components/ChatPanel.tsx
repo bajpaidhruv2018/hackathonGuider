@@ -256,7 +256,7 @@ export default function ChatPanel({
                     {isUser ? 'person' : 'smart_toy'}
                   </span>
                 </div>
-                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">{isUser ? 'YOU' : 'COACH'}</span>
+                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">{isUser ? 'OPERATOR' : 'COACH_AI'}</span>
                 <span className={`font-data-mono text-[10px] text-outline ${isUser ? 'mr-2' : 'ml-2'}`}>{time}</span>
               </div>
               
@@ -277,7 +277,7 @@ export default function ChatPanel({
               <div className="w-6 h-6 rounded bg-primary/20 border border-primary/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>
               </div>
-              <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">COACH</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">COACH_AI</span>
             </div>
             <div className="pl-8 flex gap-1 items-center h-6">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></span>

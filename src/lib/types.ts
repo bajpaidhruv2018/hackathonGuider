@@ -1,8 +1,11 @@
 // ─── Team Members ───────────────────────────────────────────────
+export type CrewStatus = "ON_TRACK" | "AT_RISK" | "BLOCKED" | "DONE";
+
 export interface TeamMember {
   name: string;
   role: string;        // Frontend, Backend, Design, Full Stack, ML/AI, DevOps, etc.
   work: string[];      // Assigned tasks/responsibilities
+  status?: CrewStatus; // Crew status for workspace tracking
 }
 
 // ─── Concept & Metadata ─────────────────────────────────────────────
@@ -79,6 +82,9 @@ export interface Blocker {
   resolved: boolean;
 }
 
+// ─── Session Status ─────────────────────────────────────────────────
+export type SessionStatus = "active" | "completed";
+
 // ─── Session ────────────────────────────────────────────────────────
 export interface Session {
   id: string;
@@ -88,6 +94,7 @@ export interface Session {
   pitch_outline: PitchOutline | null;
   blockers: Blocker[];
   chat_history: ChatMessage[];
+  status: SessionStatus;
   updated_at: string;
 }
 
@@ -95,6 +102,10 @@ export interface Session {
 export interface SessionListItem {
   id: string;
   concept: Concept | null;
+  scope_critique: ScopeCritique | null;
+  roadmap: Roadmap | null;
+  blockers: Blocker[];
+  status: SessionStatus;
   updated_at: string;
 }
 
