@@ -9,6 +9,7 @@ export function NavigationLayout({ children }: { children: React.ReactNode }) {
   const isHome = pathname === "/";
   const isSetup = pathname === "/new";
   const isWorkspace = pathname.startsWith("/project/");
+  const isArchives = pathname === "/archives";
 
   const activeLinkClass = "flex items-center gap-md px-md py-sm rounded transition-colors font-label-caps uppercase bg-primary-container text-on-primary-container";
   const inactiveLinkClass = "flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-caps uppercase";
@@ -41,6 +42,13 @@ export function NavigationLayout({ children }: { children: React.ReactNode }) {
           >
             <span className="material-symbols-outlined text-[20px]">biotech</span>
             Workspace
+          </Link>
+          <Link
+            href="/archives"
+            className={isArchives ? activeLinkClass : inactiveLinkClass}
+          >
+            <span className="material-symbols-outlined text-[20px]">inventory_2</span>
+            Archives
           </Link>
         </nav>
         <div className="p-md border-t border-outline-variant mt-auto">

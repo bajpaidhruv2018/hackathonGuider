@@ -105,12 +105,17 @@ export default function NewProjectPage() {
 
   // Duration warning logic
   const getDurationWarning = (): string | null => {
-    if (duration !== "custom") return null;
     const hours = getEffectiveDuration();
+    const crewSize = members.filter(m => m.name.trim()).length;
+
+    // Zero-crew warning applies regardless of duration mode
+    if (crewSize === 0 && hours) {
+      return `⚠ ALERT: No operators designated. At least one crew member must be named before launch.`;
+    }
+
+    if (duration !== "custom") return null;
     if (!hours) return null;
 
-    const crewSize = members.filter(m => m.name.trim()).length;
-    
     if (hours < 2) {
       return `⚠ CAUTION: ${hours}H operational window is extremely tight for any meaningful output. Consider extending to at least 4H.`;
     }
@@ -293,14 +298,14 @@ export default function NewProjectPage() {
                 />
                 <span className="font-label-caps text-label-caps text-on-surface-variant tracking-widest">HOURS</span>
               </div>
+            </div>
+          )}
 
-              {/* Duration Warning */}
-              {durationWarning && (
-                <div className="flex items-start gap-sm bg-error/10 border border-error/30 text-error px-md py-sm rounded-lg shadow-sm">
-                  <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0">warning</span>
-                  <span className="font-data-mono text-[12px] leading-relaxed">{durationWarning}</span>
-                </div>
-              )}
+          {/* Duration / Crew Warning (shown for any duration mode) */}
+          {durationWarning && (
+            <div className="flex items-start gap-sm bg-error/10 border border-error/30 text-error px-md py-sm rounded-lg shadow-sm mt-sm">
+              <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0">warning</span>
+              <span className="font-data-mono text-[12px] leading-relaxed">{durationWarning}</span>
             </div>
           )}
         </div>

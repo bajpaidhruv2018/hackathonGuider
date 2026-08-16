@@ -25,6 +25,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [markingComplete, setMarkingComplete] = useState(false);
+  const [togglingMilestone, setTogglingMilestone] = useState<string | null>(null);
 
   // Load session by ID
   useEffect(() => {
@@ -131,6 +132,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     handleSendMessage(
       "My scope has changed. Please regenerate the pitch outline to match the current scope."
     );
+  };
+
+  const handleToggleMilestone = async (phaseIndex: number, milestoneId: string, currentStatus: string) => {
+    if (!session || togglingMilestone) return;
+    const nextStatus = currentStatus === "done" ? "not_started" : "done";
+    
+    setTogglingMilestone(milestoneId);
+    try {
+      const res = await fetch("/api/session", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          sessionId: session.id, 
+          phaseIndex, 
+          milestoneId, 
+          status: nextStatus 
+        }),
+      });
+      if (res.ok) {
+        const updatedSession = await res.json();
+        setSession(updatedSession);
+      }
+    } catch (err) {
+      console.error("Failed to toggle milestone:", err);
+    } finally {
+      setTogglingMilestone(null);
+    }
   };
 
   // Derived state
@@ -325,10 +353,25 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             {milestones.map((m, mIdx) => {
                               const sc = statusColors[m.status] || statusColors.not_started;
                               return (
-                                <details key={m.id || `m-${mIdx}`} className="group">
+                              <details key={m.id || `m-${mIdx}`} className="group">
                                   <summary className="flex items-center gap-1.5 cursor-pointer py-0.5 hover:bg-surface-container-high rounded px-1 -mx-1 transition-colors">
-                                    <span className={`w-2 h-2 rounded-full ${sc.dot} shrink-0`}></span>
-                                    <span className="font-data-mono text-[11px] text-on-surface flex-1">{m.task}</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleToggleMilestone(phaseIdx, m.id, m.status);
+                                      }}
+                                      disabled={togglingMilestone === m.id || isCompleted}
+                                      className="flex items-center justify-center shrink-0 w-4 h-4"
+                                    >
+                                      {togglingMilestone === m.id ? (
+                                        <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                                      ) : m.status === 'done' ? (
+                                        <span className="material-symbols-outlined text-[16px] text-secondary">check_box</span>
+                                      ) : (
+                                        <span className="material-symbols-outlined text-[16px] text-outline">check_box_outline_blank</span>
+                                      )}
+                                    </button>
+                                    <span className={`font-data-mono text-[11px] flex-1 ${m.status === 'done' ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{m.task}</span>
                                     {m.assigned_to && (
                                       <span className="font-data-mono text-[9px] text-outline">@{m.assigned_to.replace(/\s+/g, '_').toLowerCase()}</span>
                                     )}

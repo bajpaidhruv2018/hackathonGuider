@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, getSession, listSessions, updateSessionStatus } from "@/lib/session";
-import { SessionStatus } from "@/lib/types";
+import { createSession, getSession, listSessions, updateSessionStatus, updateSessionState } from "@/lib/session";
+import { SessionStatus, MilestoneStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -84,3 +84,61 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+/**
+ * PUT — Toggle a milestone's status within the roadmap.
+ * Body: { sessionId, phaseIndex, milestoneId, status }
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { sessionId, phaseIndex, milestoneId, status } = body;
+
+    if (!sessionId || phaseIndex === undefined || !milestoneId || !status) {
+      return NextResponse.json(
+        { error: "sessionId, phaseIndex, milestoneId, and status are required" },
+        { status: 400 }
+      );
+    }
+
+    const validStatuses: MilestoneStatus[] = ["not_started", "in_progress", "done", "at_risk"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: `status must be one of: ${validStatuses.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // Fetch current session
+    const session = await getSession(sessionId);
+    if (!session) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    if (!session.roadmap?.phases) {
+      return NextResponse.json({ error: "No roadmap found" }, { status: 400 });
+    }
+
+    // Clone the roadmap and update the target milestone
+    const updatedPhases = session.roadmap.phases.map((phase, pIdx) => {
+      if (pIdx !== phaseIndex) return phase;
+      return {
+        ...phase,
+        milestones: phase.milestones.map((m) => {
+          if (m.id !== milestoneId) return m;
+          return { ...m, status: status as MilestoneStatus };
+        }),
+      };
+    });
+
+    const updatedRoadmap = { ...session.roadmap, phases: updatedPhases };
+    const updated = await updateSessionState(sessionId, { roadmap: updatedRoadmap });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Toggle milestone error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to toggle milestone";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+

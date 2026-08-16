@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SessionListItem, CrewStatus } from "@/lib/types";
 
-type ViewMode = "active" | "archived";
-
 const crewDotColors: Record<CrewStatus, string> = {
   ON_TRACK: "bg-secondary",
   AT_RISK: "bg-primary",
@@ -16,13 +14,11 @@ const crewDotColors: Record<CrewStatus, string> = {
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("active");
 
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const status = viewMode === "active" ? "active" : "completed";
-        const res = await fetch(`/api/session?status=${status}`);
+        const res = await fetch("/api/session?status=active");
         if (res.ok) {
           const data = await res.json();
           setSessions(Array.isArray(data) ? data : []);
@@ -33,9 +29,8 @@ export default function HomePage() {
         setLoading(false);
       }
     }
-    setLoading(true);
     fetchSessions();
-  }, [viewMode]);
+  }, []);
 
   const getProjectName = (session: SessionListItem) => {
     if (!session.concept) return "Untitled Project";
@@ -165,7 +160,7 @@ export default function HomePage() {
     return "Complete";
   };
 
-  const isArchiveView = viewMode === "archived";
+
 
   return (
     <div className="flex flex-col w-full relative">
@@ -184,15 +179,13 @@ export default function HomePage() {
               <span className="material-symbols-outlined text-[18px] group-hover:rotate-90 transition-transform">add</span>
               New Project
             </Link>
-            <button 
-              onClick={() => setViewMode(isArchiveView ? "active" : "archived")}
-              className={`bg-transparent hover:bg-surface-container-high border border-outline-variant px-lg py-sm rounded font-data-mono text-data-mono shadow-sm transition-colors flex items-center gap-sm ${
-                isArchiveView ? 'text-secondary bg-secondary/5 border-secondary/30' : 'text-on-surface'
-              }`}
+            <Link
+              href="/archives"
+              className="bg-transparent hover:bg-surface-container-high border border-outline-variant px-lg py-sm rounded font-data-mono text-data-mono text-on-surface shadow-sm transition-colors flex items-center gap-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">{isArchiveView ? 'rocket_launch' : 'history'}</span>
-              {isArchiveView ? 'Active Missions' : 'View Archives'}
-            </button>
+              <span className="material-symbols-outlined text-[18px]">history</span>
+              View Archives
+            </Link>
           </div>
         </div>
         <div className="absolute right-xl top-1/2 -translate-y-1/2 hidden lg:flex w-[400px] h-[300px] pointer-events-none mix-blend-screen opacity-40">
@@ -215,10 +208,10 @@ export default function HomePage() {
         <div className="flex items-end justify-between mb-lg pb-sm border-b border-outline-variant/30">
           <div className="flex flex-col gap-xs">
             <h2 className="font-headline-md text-headline-md text-on-surface">
-              {isArchiveView ? 'Mission Archives' : 'Active Missions'}
+              Active Missions
             </h2>
             <span className="font-data-mono text-data-mono text-on-surface-variant text-[12px] opacity-70">
-              Showing {sessions.length} {isArchiveView ? 'archived' : 'active'} deployments
+              Showing {sessions.length} active deployments
             </span>
           </div>
           <div className="flex items-center gap-xs">
@@ -233,13 +226,11 @@ export default function HomePage() {
 
         {loading ? (
           <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
-            {isArchiveView ? 'Loading archives...' : 'Loading deployments...'}
+            Loading deployments...
           </div>
         ) : sessions.length === 0 ? (
           <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
-            {isArchiveView 
-              ? 'No archived missions found. Complete a mission to see it here.' 
-              : 'No active missions found. Initialize a new project.'}
+            No active missions found. Initialize a new project.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
