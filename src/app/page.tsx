@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SessionListItem, CrewStatus } from "@/lib/types";
+import { EmptyMissionsState } from "@/components/EmptyMissionsState";
+import { EXAMPLE_MISSION } from "@/lib/exampleMission";
 
 const crewDotColors: Record<CrewStatus, string> = {
   ON_TRACK: "bg-secondary",
@@ -14,6 +16,7 @@ const crewDotColors: Record<CrewStatus, string> = {
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showExample, setShowExample] = useState(false);
 
   useEffect(() => {
     async function fetchSessions() {
@@ -31,6 +34,19 @@ export default function HomePage() {
     }
     fetchSessions();
   }, []);
+
+  const handleLoadExample = () => {
+    setShowExample(true);
+  };
+
+  const handleDismissExample = () => {
+    setShowExample(false);
+  };
+
+  // Merge example mission into display list
+  const displaySessions: SessionListItem[] = showExample
+    ? [EXAMPLE_MISSION, ...sessions]
+    : sessions;
 
   const getProjectName = (session: SessionListItem) => {
     if (!session.concept) return "Untitled Project";
@@ -160,28 +176,32 @@ export default function HomePage() {
     return "Complete";
   };
 
-
+  const isExampleSession = (session: SessionListItem) =>
+    session.id === EXAMPLE_MISSION.id;
 
   return (
     <div className="flex flex-col w-full relative">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background pointer-events-none"></div>
       
-      <section className="relative w-full max-w-[1440px] mx-auto px-lg pt-xl pb-xl flex flex-col justify-center items-start z-10 min-h-[40vh]">
+      {/* ──── Hero Section ──── */}
+      <section className="relative w-full max-w-[1440px] mx-auto px-md md:px-lg pt-lg md:pt-xl pb-lg md:pb-xl flex flex-col justify-center items-start z-10 min-h-[30vh] md:min-h-[40vh]">
         <div className="max-w-[768px] flex flex-col gap-md">
           <div className="inline-flex items-center gap-xs px-sm py-xs bg-surface-container-high/50 backdrop-blur-sm shadow-sm rounded">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(195,192,255,0.8)]"></span>
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">System Ready</span>
           </div>
-          <h1 className="font-display-lg text-display-lg text-on-background tracking-tighter">Turn your idea into a demo before the clock runs out</h1>
+          <h1 className="font-display-lg text-headline-lg-mobile md:text-display-lg text-on-background tracking-tighter">Turn your idea into a demo before the clock runs out</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[600px]">AI-powered coaching for high-stakes hackathons. Monitor velocity, untangle architecture, and execute with precision.</p>
-          <div className="mt-sm flex items-center gap-md">
-            <Link href="/new" className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-lg py-sm rounded font-data-mono text-data-mono font-bold shadow-lg shadow-primary/20 transition-all flex items-center gap-sm group">
+          <div className="mt-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-sm md:gap-md">
+            {/* Task 3: Primary CTA — solid terminal green */}
+            <Link href="/new" className="bg-[#00FF41] hover:bg-[#33FF66] text-[#0D1117] px-lg py-sm rounded font-data-mono text-data-mono font-bold shadow-lg shadow-[#00FF41]/20 hover:shadow-[#00FF41]/40 transition-all flex items-center justify-center gap-sm group">
               <span className="material-symbols-outlined text-[18px] group-hover:rotate-90 transition-transform">add</span>
               New Project
             </Link>
+            {/* Task 3: Secondary CTA — ghost button with green border */}
             <Link
               href="/archives"
-              className="bg-transparent hover:bg-surface-container-high border border-outline-variant px-lg py-sm rounded font-data-mono text-data-mono text-on-surface shadow-sm transition-colors flex items-center gap-sm"
+              className="bg-transparent hover:bg-[#00FF41]/10 border border-[#00FF41]/60 hover:border-[#00FF41] px-lg py-sm rounded font-data-mono text-data-mono text-[#00FF41] transition-all flex items-center justify-center gap-sm"
             >
               <span className="material-symbols-outlined text-[18px]">history</span>
               View Archives
@@ -204,14 +224,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="w-full max-w-[1440px] mx-auto px-lg pb-xl z-10 relative">
-        <div className="flex items-end justify-between mb-lg pb-sm border-b border-outline-variant/30">
+      {/* ──── Missions Section ──── */}
+      <section className="w-full max-w-[1440px] mx-auto px-md md:px-lg pb-xl z-10 relative">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-lg pb-sm border-b border-outline-variant/30 gap-sm">
           <div className="flex flex-col gap-xs">
             <h2 className="font-headline-md text-headline-md text-on-surface">
               Active Missions
             </h2>
             <span className="font-data-mono text-data-mono text-on-surface-variant text-[12px] opacity-70">
-              Showing {sessions.length} active deployments
+              Showing {displaySessions.length} active deployments
             </span>
           </div>
           <div className="flex items-center gap-xs">
@@ -225,97 +246,124 @@ export default function HomePage() {
         </div>
 
         {loading ? (
-          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
+          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center items-center gap-sm">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
             Loading deployments...
           </div>
-        ) : sessions.length === 0 ? (
-          <div className="font-data-mono text-on-surface-variant p-xl flex justify-center">
-            No active missions found. Initialize a new project.
-          </div>
+        ) : displaySessions.length === 0 ? (
+          /* Task 1: Empty state component */
+          <EmptyMissionsState onLoadExample={handleLoadExample} />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-            {sessions.map((session) => {
-              const name = getProjectName(session);
-              const endTime = getHackathonEndTime(session);
-              const { text: timeText, isPast } = calculateTimeRemaining(endTime);
-              const idAbbr = session.id.slice(0, 8).toUpperCase();
-              const teamMembers = getTeamMembers(session);
-              const teamSize = teamMembers.length || getTeamSize(session);
-              const status = getSessionStatus(session);
-              const colors = getStatusColors(status);
-              const progress = getProgress(session);
-              const phase = getCurrentPhase(session);
-              const isDone = status === "DONE" || isPast;
-
-              return (
-                <Link
-                  key={session.id}
-                  href={`/project/${session.id}`}
-                  className={`group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden ${isDone ? 'opacity-75' : ''}`}
+          <div className="flex flex-col gap-md">
+            {/* Task 5: Example mission banner */}
+            {showExample && (
+              <div className="example-banner rounded-lg px-md py-sm flex items-center justify-between">
+                <div className="flex items-center gap-sm font-data-mono text-data-mono text-[#00FF41]">
+                  <span className="material-symbols-outlined text-[16px]">science</span>
+                  Example mission loaded — this is demo data
+                </div>
+                <button
+                  onClick={handleDismissExample}
+                  className="flex items-center gap-xs px-sm py-xs rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors font-label-caps text-label-caps cursor-pointer"
                 >
-                  <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${colors.gradient}`}></div>
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-xs w-2/3">
-                      <span className={`font-label-caps text-label-caps ${colors.statusText.split(' ')[0]} uppercase truncate`}>PRJ-{idAbbr}</span>
-                      <h3 className={`font-headline-md text-headline-md text-on-surface truncate ${isDone ? 'line-through decoration-secondary/50' : ''}`}>{name}</h3>
-                    </div>
-                    <div className={`flex items-center gap-1 px-sm py-[2px] rounded font-label-caps text-label-caps border ${colors.statusBg} ${colors.statusText}`}>
-                      {status === "DONE" ? (
-                        <span className="material-symbols-outlined text-[12px]">check</span>
-                      ) : status === "BLOCKED" ? (
-                        <span className="material-symbols-outlined text-[12px]">block</span>
-                      ) : (
-                        <span className={`w-1.5 h-1.5 rounded-full ${colors.bar}`}></span>
-                      )}
-                      {status}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-sm mt-sm">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-label-caps text-label-caps text-on-surface-variant">TEAM SIZE</span>
-                      <span className="font-data-mono text-data-mono text-on-surface flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px] text-on-surface-variant">group</span> {teamSize}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-label-caps text-label-caps text-on-surface-variant">CURRENT PHASE</span>
-                      <span className="font-data-mono text-data-mono text-on-surface truncate">{isDone ? 'Archived' : phase}</span>
-                    </div>
-                  </div>
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  Dismiss
+                </button>
+              </div>
+            )}
 
-                  {/* Crew Status Strip */}
-                  {teamMembers.length > 0 && (
-                    <div className="flex items-center gap-1 px-1">
-                      <span className="font-label-caps text-[8px] text-outline mr-1">CREW</span>
-                      {teamMembers.map((member: any, i: number) => {
-                        const memberStatus: CrewStatus = member.status || "ON_TRACK";
-                        const dotColor = isDone ? "bg-secondary" : crewDotColors[memberStatus] || "bg-secondary";
-                        return (
-                          <div
-                            key={i}
-                            className={`w-2 h-2 rounded-full ${dotColor} ${memberStatus === "BLOCKED" && !isDone ? "animate-pulse" : ""}`}
-                            title={`${member.name}: ${memberStatus}`}
-                          ></div>
-                        );
-                      })}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
+              {displaySessions.map((session) => {
+                const name = getProjectName(session);
+                const endTime = getHackathonEndTime(session);
+                const { text: timeText, isPast } = calculateTimeRemaining(endTime);
+                const idAbbr = session.id.slice(0, 8).toUpperCase();
+                const teamMembers = getTeamMembers(session);
+                const teamSize = teamMembers.length || getTeamSize(session);
+                const status = getSessionStatus(session);
+                const colors = getStatusColors(status);
+                const progress = getProgress(session);
+                const phase = getCurrentPhase(session);
+                const isDone = status === "DONE" || isPast;
+                const isExample = isExampleSession(session);
+
+                return (
+                  <Link
+                    key={session.id}
+                    href={isExample ? "#" : `/project/${session.id}`}
+                    onClick={isExample ? (e) => e.preventDefault() : undefined}
+                    className={`group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden ${isDone ? 'opacity-75' : ''} ${isExample ? 'ring-1 ring-[#00FF41]/20' : ''}`}
+                  >
+                    {/* Example badge */}
+                    {isExample && (
+                      <div className="absolute top-2 right-2 px-xs py-[1px] rounded text-[9px] font-bold uppercase tracking-wider bg-[#00FF41]/15 text-[#00FF41] border border-[#00FF41]/20">
+                        Demo
+                      </div>
+                    )}
+                    <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${colors.gradient}`}></div>
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-xs w-2/3">
+                        <span className={`font-label-caps text-label-caps ${colors.statusText.split(' ')[0]} uppercase truncate`}>PRJ-{idAbbr}</span>
+                        <h3 className={`font-headline-md text-headline-md text-on-surface truncate ${isDone ? 'line-through decoration-secondary/50' : ''}`}>{name}</h3>
+                      </div>
+                      <div className={`flex items-center gap-1 px-sm py-[2px] rounded font-label-caps text-label-caps border ${colors.statusBg} ${colors.statusText}`}>
+                        {status === "DONE" ? (
+                          <span className="material-symbols-outlined text-[12px]">check</span>
+                        ) : status === "BLOCKED" ? (
+                          <span className="material-symbols-outlined text-[12px]">block</span>
+                        ) : (
+                          <span className={`w-1.5 h-1.5 rounded-full ${colors.bar}`}></span>
+                        )}
+                        {status}
+                      </div>
                     </div>
-                  )}
-                  
-                  <div className="mt-auto pt-md border-t border-outline-variant/30 flex flex-col gap-2">
-                    <div className="flex justify-between items-end">
-                      <span className="font-label-caps text-label-caps text-on-surface-variant">{isDone ? 'STATUS' : 'T-MINUS'}</span>
-                      <span className={`font-timer-lg text-[24px] leading-none tracking-tight ${colors.timer} font-semibold`}>
-                        {timeText}
-                      </span>
+                    
+                    <div className="grid grid-cols-2 gap-sm mt-sm">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-label-caps text-label-caps text-on-surface-variant">TEAM SIZE</span>
+                        <span className="font-data-mono text-data-mono text-on-surface flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-on-surface-variant">group</span> {teamSize}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-label-caps text-label-caps text-on-surface-variant">CURRENT PHASE</span>
+                        <span className="font-data-mono text-data-mono text-on-surface truncate">{isDone ? 'Archived' : phase}</span>
+                      </div>
                     </div>
-                    <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-                      <div className={`h-full ${colors.bar} rounded-full ${colors.barShadow}`} style={{ width: `${progress}%` }}></div>
+
+                    {/* Crew Status Strip */}
+                    {teamMembers.length > 0 && (
+                      <div className="flex items-center gap-1 px-1">
+                        <span className="font-label-caps text-[8px] text-outline mr-1">CREW</span>
+                        {teamMembers.map((member: any, i: number) => {
+                          const memberStatus: CrewStatus = member.status || "ON_TRACK";
+                          const dotColor = isDone ? "bg-secondary" : crewDotColors[memberStatus] || "bg-secondary";
+                          return (
+                            <div
+                              key={i}
+                              className={`w-2 h-2 rounded-full ${dotColor} ${memberStatus === "BLOCKED" && !isDone ? "animate-pulse" : ""}`}
+                              title={`${member.name}: ${memberStatus}`}
+                            ></div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="mt-auto pt-md border-t border-outline-variant/30 flex flex-col gap-2">
+                      <div className="flex justify-between items-end">
+                        <span className="font-label-caps text-label-caps text-on-surface-variant">{isDone ? 'STATUS' : 'T-MINUS'}</span>
+                        <span className={`font-timer-lg text-[24px] leading-none tracking-tight ${colors.timer} font-semibold`}>
+                          {timeText}
+                        </span>
+                      </div>
+                      <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
+                        <div className={`h-full ${colors.bar} rounded-full ${colors.barShadow}`} style={{ width: `${progress}%` }}></div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>

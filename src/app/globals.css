@@ -140,4 +140,59 @@
   details > summary {
     list-style: none;
   }
+
+  /* ─── Live Pulse Dot (Task 4) ─────────────────────────── */
+  .live-pulse-dot {
+    position: relative;
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: #00FF41;
+    box-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
+  }
+  .live-pulse-dot::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 255, 65, 0.4);
+    animation: live-ring 2s ease-out infinite;
+  }
+  .live-pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    animation: live-ring 2s ease-out 0.5s infinite;
+  }
+
+  @keyframes live-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  /* ─── Mobile Menu Animations (Task 6) ──────────────────── */
+  .mobile-menu-backdrop {
+    animation: fade-in 0.2s ease-out;
+  }
+  .mobile-menu-drawer {
+    animation: slide-in-left 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  /* ─── Example Mission Banner ───────────────────────────── */
+  .example-banner {
+    background: linear-gradient(90deg, rgba(0,255,65,0.08), rgba(195,192,255,0.08));
+    border: 1px solid rgba(0,255,65,0.2);
+  }
 }
