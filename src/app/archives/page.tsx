@@ -161,7 +161,7 @@ export default function ArchivesPage() {
                 <Link
                   key={session.id}
                   href={`/project/${session.id}`}
-                  className="group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden opacity-85 hover:opacity-100"
+                  className="group relative bg-surface-container hover:bg-surface-container-high transition-colors p-md rounded-lg flex flex-col gap-md shadow-md border border-transparent hover:border-outline-variant/50 cursor-pointer overflow-hidden opacity-85 hover:opacity-100 min-h-[300px]"
                 >
                   {/* Top gradient bar */}
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary to-primary-container"></div>
@@ -227,11 +227,21 @@ export default function ArchivesPage() {
                   )}
 
                   {/* Footer */}
-                  <div className="mt-auto pt-md border-t border-outline-variant/30 flex justify-between items-end">
-                    <span className="font-label-caps text-label-caps text-on-surface-variant">STATUS</span>
-                    <span className="font-timer-lg text-[24px] leading-none tracking-tight text-secondary font-semibold">
-                      COMPLETED
-                    </span>
+                  <div className="mt-auto pt-md border-t border-outline-variant/30 flex flex-col gap-sm">
+                    {session.retro_summary && (
+                      <div className="bg-surface-container-highest p-sm rounded border border-outline-variant/50">
+                        <span className="font-label-caps text-[9px] text-outline uppercase block mb-1">AI Retro Summary</span>
+                        <p className="font-body-sm text-[11px] text-on-surface-variant leading-relaxed line-clamp-3">
+                          {session.retro_summary}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-end mt-1">
+                      <span className="font-label-caps text-label-caps text-on-surface-variant">STATUS</span>
+                      <span className="font-timer-lg text-[24px] leading-none tracking-tight text-secondary font-semibold">
+                        COMPLETED
+                      </span>
+                    </div>
                   </div>
                 </Link>
               );

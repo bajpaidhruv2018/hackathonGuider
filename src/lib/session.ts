@@ -172,6 +172,7 @@ export async function updateSessionState(
   if (stateUpdate.roadmap !== undefined) updates.roadmap = stateUpdate.roadmap;
   if (stateUpdate.pitch_outline !== undefined) updates.pitch_outline = stateUpdate.pitch_outline;
   if (stateUpdate.blockers !== undefined) updates.blockers = stateUpdate.blockers;
+  if (stateUpdate.retro_summary !== undefined) updates.retro_summary = stateUpdate.retro_summary;
 
   const { data, error } = await supabase
     .from(TABLE)

@@ -6,6 +6,7 @@ export interface TeamMember {
   role: string;        // Frontend, Backend, Design, Full Stack, ML/AI, DevOps, etc.
   work: string[];      // Assigned tasks/responsibilities
   status?: CrewStatus; // Crew status for workspace tracking
+  last_active_at?: string; // ISO timestamp for staleness detection
 }
 
 // ─── Concept & Metadata ─────────────────────────────────────────────
@@ -47,6 +48,7 @@ export interface Milestone {
   assigned_to?: string;      // Team member name
   done_condition: string;    // demoable "done" definition
   status: MilestoneStatus;
+  target_time?: string;      // ISO timestamp for deadline awareness
 }
 
 export interface Phase {
@@ -96,6 +98,7 @@ export interface Session {
   chat_history: ChatMessage[];
   status: SessionStatus;
   updated_at: string;
+  retro_summary?: string; // Short post-mortem summary
 }
 
 // ─── Session List Item (for home page history) ──────────────────────
@@ -107,6 +110,7 @@ export interface SessionListItem {
   blockers: Blocker[];
   status: SessionStatus;
   updated_at: string;
+  retro_summary?: string;
 }
 
 // ─── Chat ───────────────────────────────────────────────────────────
@@ -128,6 +132,7 @@ export interface StateUpdate {
   roadmap?: Roadmap;
   pitch_outline?: PitchOutline;
   blockers?: Blocker[];
+  retro_summary?: string;
 }
 
 export interface ChatResponse {

@@ -6,15 +6,16 @@ interface MissionClockProps {
   startTime: string | null;
   endTime: string | null;
   currentPhaseName?: string;
+  timeOffset?: number;
 }
 
-export default function MissionClock({ startTime, endTime, currentPhaseName }: MissionClockProps) {
-  const [now, setNow] = useState(Date.now());
+export default function MissionClock({ startTime, endTime, currentPhaseName, timeOffset = 0 }: MissionClockProps) {
+  const [now, setNow] = useState(Date.now() + timeOffset);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const interval = setInterval(() => setNow(Date.now() + timeOffset), 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeOffset]);
 
   if (!startTime || !endTime) {
     return (

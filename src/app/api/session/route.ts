@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, getSession, listSessions, updateSessionStatus, updateSessionState } from "@/lib/session";
 import { SessionStatus, MilestoneStatus } from "@/lib/types";
+import Groq from "groq-sdk";
+
+let groqClient: Groq | null = null;
+function getGroqClient(): Groq {
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return groqClient;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +85,39 @@ export async function PATCH(request: NextRequest) {
     }
 
     const session = await updateSessionStatus(id, status);
+
+    // If marked completed, generate retro summary
+    if (status === "completed" && !session.retro_summary) {
+      try {
+        const client = getGroqClient();
+        const prompt = `
+          The hackathon mission has been completed.
+          Here is the final state:
+          Concept: ${JSON.stringify(session.concept)}
+          Blockers: ${JSON.stringify(session.blockers)}
+          Roadmap: ${JSON.stringify(session.roadmap)}
+          
+          Provide a short, 2-3 sentence markdown summary of the team's performance, what they accomplished, and any major hurdles they overcame. 
+          Return ONLY a JSON object with a single key "retro_summary" containing the markdown text.
+        `;
+        const response = await client.chat.completions.create({
+          model: "openai/gpt-oss-120b",
+          messages: [{ role: "system", content: prompt }],
+          response_format: { type: "json_object" },
+          temperature: 0.5,
+        });
+        
+        const raw = response.choices[0]?.message?.content || "{}";
+        const parsed = JSON.parse(raw);
+        if (parsed.retro_summary) {
+          const updated = await updateSessionState(id, { retro_summary: parsed.retro_summary });
+          return NextResponse.json(updated);
+        }
+      } catch (err) {
+        console.error("Failed to generate retro summary:", err);
+      }
+    }
+
     return NextResponse.json(session);
   } catch (error) {
     console.error("Update session status error:", error);

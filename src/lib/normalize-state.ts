@@ -67,6 +67,8 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
                 : typeof m.work === "string"
                 ? [m.work]
                 : [],
+              status: m.status || undefined,
+              last_active_at: m.last_active_at || m.lastActiveAt || undefined,
             }))
           : [],
         tech_stack: normalizeToString(
@@ -136,6 +138,7 @@ export function normalizeStateUpdate(raw: any): StateUpdate | null {
                   status: normalizeStatus(
                     m.status || "not_started"
                   ),
+                  target_time: m.target_time || m.targetTime || undefined,
                 }))
               : [],
           }))

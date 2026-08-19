@@ -7,7 +7,8 @@ import ChatPanel from "@/components/ChatPanel";
 import MissionClock from "@/components/MissionClock";
 import CrewCard from "@/components/CrewCard";
 import QuickBlockerInput from "@/components/QuickBlockerInput";
-import PitchExport from "@/components/PitchExport";
+import PitchOutlineCard from "@/components/PitchOutlineCard";
+import { useCoachStaleness } from "@/lib/useCoachStaleness";
 
 const statusColors: Record<MilestoneStatus, { dot: string; text: string; bg: string }> = {
   not_started: { dot: "bg-surface-variant", text: "text-on-surface-variant", bg: "bg-surface-variant/50" },
@@ -26,6 +27,8 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [initializing, setInitializing] = useState(true);
   const [markingComplete, setMarkingComplete] = useState(false);
   const [togglingMilestone, setTogglingMilestone] = useState<string | null>(null);
+  const [timeOffset, setTimeOffset] = useState(0);
+  const [operatorFilter, setOperatorFilter] = useState<string | null>(null);
 
   // Load session by ID
   useEffect(() => {
@@ -184,6 +187,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   };
   const currentPhase = getCurrentPhase();
 
+  // Use coach staleness hook
+  const handleNudge = useCallback((message: string) => {
+    handleSendMessage(message); // The coach "nudges" by posting a system-like message that the LLM will see as user message
+  }, [handleSendMessage]);
+
+  const { derivedTeamMembers, derivedMilestoneStatuses } = useCoachStaleness(session, timeOffset, handleNudge);
+
   // Time-open helper for blockers
   const getTimeOpen = (reportedAt: string) => {
     const diff = Date.now() - new Date(reportedAt).getTime();
@@ -243,11 +253,67 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
         {/* RIGHT PANE: MISSION STATE (40%) */}
         <div className="w-full md:w-[40%] flex flex-col bg-surface-container-lowest overflow-hidden relative">
+          
+          {/* Share / Header */}
+          <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant/30 flex justify-between items-center">
+            <div className="flex items-center gap-sm">
+              <span className="font-label-caps text-[10px] text-outline uppercase tracking-widest">MISSION STATE</span>
+            </div>
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/share/${id}`;
+                navigator.clipboard.writeText(url);
+                alert("Share link copied to clipboard!");
+              }}
+              className="flex items-center gap-1 font-label-caps text-[10px] bg-surface hover:bg-surface-container border border-outline-variant px-2 py-1 rounded transition-colors text-on-surface-variant"
+            >
+              <span className="material-symbols-outlined text-[12px]">share</span>
+              COPY SHARE LINK
+            </button>
+          </div>
+
           {/* Completed banner */}
           {isCompleted && (
             <div className="px-md py-sm bg-secondary/10 border-b border-secondary/30 flex items-center gap-sm">
               <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
               <span className="font-label-caps text-label-caps text-secondary">MISSION_COMPLETE — READ_ONLY</span>
+            </div>
+          )}
+
+          {/* Operator Filter */}
+          <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant/30 flex items-center gap-sm overflow-x-auto">
+            <span className="material-symbols-outlined text-outline text-[16px]">filter_list</span>
+            <span className="font-label-caps text-[10px] text-outline uppercase mr-2">Operator View:</span>
+            <button
+              onClick={() => setOperatorFilter(null)}
+              className={`font-label-caps text-[10px] px-2 py-1 rounded transition-colors whitespace-nowrap ${!operatorFilter ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-surface hover:bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+            >
+              ALL SQUAD
+            </button>
+            {teamMembers.map(m => (
+              <button
+                key={m.name}
+                onClick={() => setOperatorFilter(m.name)}
+                className={`font-label-caps text-[10px] px-2 py-1 rounded transition-colors whitespace-nowrap ${operatorFilter === m.name ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-surface hover:bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+              >
+                @{m.name.replace(/\s+/g, '_').toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* Test Hooks Header */}
+          {!isCompleted && (
+            <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant/30 flex justify-between items-center">
+              <div className="flex items-center gap-sm text-outline">
+                <span className="material-symbols-outlined text-[14px]">science</span>
+                <span className="font-label-caps text-[10px] uppercase">Test Hooks</span>
+              </div>
+              <button 
+                onClick={() => setTimeOffset(prev => prev + 2 * 60 * 60 * 1000)}
+                className="font-label-caps text-[10px] bg-primary/10 text-primary border border-primary/30 px-2 py-1 rounded hover:bg-primary/20 transition-colors"
+              >
+                Simulate Time (+2h)
+              </button>
             </div>
           )}
 
@@ -258,10 +324,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               startTime={concept?.metadata?.start_time || null}
               endTime={concept?.metadata?.end_time || null}
               currentPhaseName={currentPhase?.name}
+              timeOffset={timeOffset}
             />
 
             {/* 2. Crew Card */}
-            <CrewCard members={teamMembers} />
+            <CrewCard members={
+              (derivedTeamMembers.length > 0 ? derivedTeamMembers : teamMembers)
+                .filter(m => !operatorFilter || m.name === operatorFilter)
+            } />
 
             {/* 3. Scope Card */}
             {scope && (
@@ -350,28 +420,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             )}
                           </div>
                           <div className="flex flex-col gap-1">
-                            {milestones.map((m, mIdx) => {
-                              const sc = statusColors[m.status] || statusColors.not_started;
+                            {milestones
+                              .filter(m => !operatorFilter || m.assigned_to === operatorFilter)
+                              .map((m, mIdx) => {
+                              const currentStatus = derivedMilestoneStatuses[m.id] || m.status;
+                              const sc = statusColors[currentStatus as MilestoneStatus] || statusColors.not_started;
                               return (
                               <details key={m.id || `m-${mIdx}`} className="group">
                                   <summary className="flex items-center gap-1.5 cursor-pointer py-0.5 hover:bg-surface-container-high rounded px-1 -mx-1 transition-colors">
                                     <button
                                       onClick={(e) => {
                                         e.preventDefault();
-                                        handleToggleMilestone(phaseIdx, m.id, m.status);
+                                        handleToggleMilestone(phaseIdx, m.id, currentStatus);
                                       }}
                                       disabled={togglingMilestone === m.id || isCompleted}
                                       className="flex items-center justify-center shrink-0 w-4 h-4"
                                     >
                                       {togglingMilestone === m.id ? (
                                         <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                                      ) : m.status === 'done' ? (
+                                      ) : currentStatus === 'done' ? (
                                         <span className="material-symbols-outlined text-[16px] text-secondary">check_box</span>
+                                      ) : currentStatus === 'at_risk' ? (
+                                        <span className="material-symbols-outlined text-[16px] text-error">warning</span>
                                       ) : (
                                         <span className="material-symbols-outlined text-[16px] text-outline">check_box_outline_blank</span>
                                       )}
                                     </button>
-                                    <span className={`font-data-mono text-[11px] flex-1 ${m.status === 'done' ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{m.task}</span>
+                                    <span className={`font-data-mono text-[11px] flex-1 ${currentStatus === 'done' ? 'text-on-surface-variant line-through' : currentStatus === 'at_risk' ? 'text-error font-bold' : 'text-on-surface'}`}>{m.task}</span>
                                     {m.assigned_to && (
                                       <span className="font-data-mono text-[9px] text-outline">@{m.assigned_to.replace(/\s+/g, '_').toLowerCase()}</span>
                                     )}
@@ -442,49 +517,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
             {/* 6. Pitch Outline (Accordion) */}
             {pitch && pitch.sections && pitch.sections.length > 0 && (
-              <div className="bg-surface-container border border-outline-variant rounded shadow-sm">
-                <details className="group">
-                  <summary className="p-md flex justify-between items-center cursor-pointer hover:bg-surface-container-high transition-colors">
-                    <div className="flex items-center gap-sm">
-                      <span className="material-symbols-outlined text-outline text-[16px] group-open:text-primary transition-colors">description</span>
-                      <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">PITCH PAYLOAD</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {pitch.stale && (
-                        <span className="font-label-caps text-[8px] bg-tertiary/10 text-tertiary border border-tertiary/30 px-1.5 py-0.5 rounded uppercase">
-                          STALE — SCOPE CHANGED
-                        </span>
-                      )}
-                      <span className="material-symbols-outlined text-[16px] text-outline group-open:rotate-180 transition-transform">expand_more</span>
-                    </div>
-                  </summary>
-                  <div className="px-md pb-md border-t border-outline-variant/30">
-                    <div className="pt-sm flex flex-col gap-2">
-                      {pitch.sections.map((s: any, i: number) => (
-                        <div key={i} className={`font-data-mono text-[11px] ${pitch.stale ? 'text-outline' : 'text-on-surface-variant'} flex items-start gap-2`}>
-                          <span className="text-primary shrink-0">{String(i + 1).padStart(2, '0')}.</span>
-                          <div>
-                            <span className="font-semibold">{s.heading}</span>
-                            <span className="text-outline ml-1">— {s.content?.slice(0, 80)}{s.content?.length > 80 ? '...' : ''}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-sm pt-sm border-t border-outline-variant/30 flex items-center justify-between">
-                      <PitchExport pitchOutline={pitch} />
-                      {pitch.stale && !isCompleted && (
-                        <button
-                          onClick={handleRegeneratePitch}
-                          className="font-label-caps text-[9px] text-primary border border-primary/30 hover:bg-primary/10 px-2 py-1 rounded transition-colors"
-                        >
-                          REGENERATE
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </details>
-              </div>
+              <PitchOutlineCard 
+                pitch={pitch} 
+                judgingCriteria={concept?.metadata?.judging_criteria || ""}
+                isCompleted={isCompleted}
+                onRegenerate={handleRegeneratePitch}
+              />
             )}
 
             {/* Mark Complete */}

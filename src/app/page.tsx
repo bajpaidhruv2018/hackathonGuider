@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SessionListItem, CrewStatus } from "@/lib/types";
 import { EmptyMissionsState } from "@/components/EmptyMissionsState";
 import { EXAMPLE_MISSION } from "@/lib/exampleMission";
@@ -14,9 +15,11 @@ const crewDotColors: Record<CrewStatus, string> = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showExample, setShowExample] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     async function fetchSessions() {
@@ -41,6 +44,23 @@ export default function HomePage() {
 
   const handleDismissExample = () => {
     setShowExample(false);
+  };
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/seed", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        router.push(data.redirectUrl);
+      } else {
+        console.error("Seed failed");
+        setSeeding(false);
+      }
+    } catch (err) {
+      console.error("Seed error:", err);
+      setSeeding(false);
+    }
   };
 
   // Merge example mission into display list
@@ -206,6 +226,14 @@ export default function HomePage() {
               <span className="material-symbols-outlined text-[18px]">history</span>
               View Archives
             </Link>
+            <button
+              onClick={handleSeedDemo}
+              disabled={seeding}
+              className="bg-transparent hover:bg-primary/10 border border-primary/60 hover:border-primary px-lg py-sm rounded font-data-mono text-data-mono text-primary transition-all flex items-center justify-center gap-sm disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[18px] ${seeding ? 'animate-spin' : ''}`}>{seeding ? 'refresh' : 'science'}</span>
+              {seeding ? 'Seeding...' : 'Seed Demo Session'}
+            </button>
           </div>
         </div>
         <div className="absolute right-xl top-1/2 -translate-y-1/2 hidden lg:flex w-[400px] h-[300px] pointer-events-none mix-blend-screen opacity-40">
