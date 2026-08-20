@@ -24,7 +24,7 @@ export default function HomePage() {
   useEffect(() => {
     async function fetchSessions() {
       try {
-        const res = await fetch("/api/session?status=active");
+        const res = await fetch("/api/session?status=active", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           setSessions(Array.isArray(data) ? data : []);
@@ -226,14 +226,16 @@ export default function HomePage() {
               <span className="material-symbols-outlined text-[18px]">history</span>
               View Archives
             </Link>
-            <button
-              onClick={handleSeedDemo}
-              disabled={seeding}
-              className="bg-transparent hover:bg-primary/10 border border-primary/60 hover:border-primary px-lg py-sm rounded font-data-mono text-data-mono text-primary transition-all flex items-center justify-center gap-sm disabled:opacity-50"
-            >
-              <span className={`material-symbols-outlined text-[18px] ${seeding ? 'animate-spin' : ''}`}>{seeding ? 'refresh' : 'science'}</span>
-              {seeding ? 'Seeding...' : 'Seed Demo Session'}
-            </button>
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={handleSeedDemo}
+                disabled={seeding}
+                className="bg-transparent hover:bg-primary/10 border border-primary/60 hover:border-primary px-lg py-sm rounded font-data-mono text-data-mono text-primary transition-all flex items-center justify-center gap-sm disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-[18px] ${seeding ? 'animate-spin' : ''}`}>{seeding ? 'refresh' : 'science'}</span>
+                {seeding ? 'Seeding...' : 'Seed Demo Session'}
+              </button>
+            )}
           </div>
         </div>
         <div className="absolute right-xl top-1/2 -translate-y-1/2 hidden lg:flex w-[400px] h-[300px] pointer-events-none mix-blend-screen opacity-40">
@@ -260,7 +262,7 @@ export default function HomePage() {
               Active Missions
             </h2>
             <span className="font-data-mono text-data-mono text-on-surface-variant text-[12px] opacity-70">
-              Showing {displaySessions.length} active deployments
+              {loading ? "Scanning deployments..." : `Showing ${displaySessions.length} active deployments`}
             </span>
           </div>
           <div className="flex items-center gap-xs">
