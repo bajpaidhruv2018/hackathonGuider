@@ -248,6 +248,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             messages={messages}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
+            isCompleted={isCompleted}
           />
         </div>
 

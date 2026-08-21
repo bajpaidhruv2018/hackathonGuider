@@ -24,6 +24,16 @@ const ROLE_TASKS: Record<string, string[]> = {
   "PITCH": ["Deck creation", "Value proposition", "Demo script", "Business model"],
 };
 
+const ROLE_STYLES: Record<string, string> = {
+  "FRONTEND": "text-blue-400 border-blue-400/30 bg-blue-400/10 ring-blue-400",
+  "BACKEND": "text-green-400 border-green-400/30 bg-green-400/10 ring-green-400",
+  "DESIGN": "text-pink-400 border-pink-400/30 bg-pink-400/10 ring-pink-400",
+  "ML/AI": "text-purple-400 border-purple-400/30 bg-purple-400/10 ring-purple-400",
+  "DEVOPS": "text-orange-400 border-orange-400/30 bg-orange-400/10 ring-orange-400",
+  "DATA": "text-yellow-400 border-yellow-400/30 bg-yellow-400/10 ring-yellow-400",
+  "PITCH": "text-teal-400 border-teal-400/30 bg-teal-400/10 ring-teal-400",
+};
+
 interface MemberFormData {
   id: string;
   name: string;
@@ -129,6 +139,18 @@ export default function NewProjectPage() {
       return `⚠ NOTE: ${hours}H is a marathon, not a sprint. Coach will adjust pacing for sustained delivery.`;
     }
     return null;
+  };
+
+  const getPhasePreview = (hours: number | null) => {
+    if (!hours) return null;
+    let phases = 4;
+    if (hours <= 12) phases = 2;
+    else if (hours <= 24) phases = 3;
+    else if (hours <= 48) phases = 4;
+    else phases = 6;
+    
+    const timePerPhase = Math.round((hours / phases) * 10) / 10;
+    return `${hours}H → ~${phases} phases, ~${timePerPhase}h each`;
   };
 
   const canProceed = projectName.trim() && getEffectiveDuration() !== null && members.some(m => m.name.trim());
@@ -301,11 +323,18 @@ export default function NewProjectPage() {
             </div>
           )}
 
+          {/* Inline duration-to-phase preview */}
+          {getEffectiveDuration() !== null && (
+            <div className="font-data-mono text-[11px] text-on-surface-variant mt-1 ml-2">
+              <span className="text-secondary">↳</span> PREVIEW: {getPhasePreview(getEffectiveDuration())}
+            </div>
+          )}
+
           {/* Duration / Crew Warning (shown for any duration mode) */}
           {durationWarning && (
-            <div className="flex items-start gap-sm bg-error/10 border border-error/30 text-error px-md py-sm rounded-lg shadow-sm mt-sm">
-              <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0">warning</span>
-              <span className="font-data-mono text-[12px] leading-relaxed">{durationWarning}</span>
+            <div className="flex items-start gap-sm bg-[#0D1117] border-l-2 border-error text-error px-md py-sm rounded shadow-sm mt-sm font-data-mono">
+              <span className="text-[12px] mt-0.5 shrink-0">&gt;&gt;</span>
+              <span className="text-[11px] leading-relaxed tracking-wider uppercase">{durationWarning}</span>
             </div>
           )}
         </div>
@@ -342,17 +371,18 @@ export default function NewProjectPage() {
                 />
                 
                 <div className="flex flex-wrap gap-xs">
-                  {ROLE_OPTIONS.slice(0, 5).map(role => {
+                  {ROLE_OPTIONS.map(role => {
                     const isActive = member.roles.includes(role);
+                    const colorStyle = ROLE_STYLES[role] || "text-on-surface-variant border-outline-variant/30";
                     return (
                       <button 
                         key={role}
                         type="button" 
                         onClick={() => toggleMemberRole(member.id, role)}
-                        className={`px-sm py-xs font-label-caps text-label-caps rounded shadow-sm transition-colors border ${
+                        className={`px-sm py-xs font-label-caps text-[10px] tracking-wider rounded shadow-sm transition-colors border ${
                           isActive 
-                            ? 'bg-secondary-container text-on-secondary-container border-secondary/30' 
-                            : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/30 hover:bg-surface-container-low'
+                            ? `${colorStyle} opacity-100 ring-1 font-bold`
+                            : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/30 hover:bg-surface-container-low opacity-60'
                         }`}
                       >
                         {role}

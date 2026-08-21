@@ -20,6 +20,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [showExample, setShowExample] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [sortBy, setSortBy] = useState("TIME REMAINING");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function fetchSessions() {
@@ -95,11 +102,10 @@ export default function HomePage() {
     return meta?.end_time || null;
   };
 
-  const calculateTimeRemaining = (endTimeStr: string | null) => {
+  const calculateTimeRemaining = (endTimeStr: string | null, currentTime: number) => {
     if (!endTimeStr) return { text: "UNKNOWN", isPast: false };
     const endTime = new Date(endTimeStr);
-    const now = new Date();
-    const diffMs = endTime.getTime() - now.getTime();
+    const diffMs = endTime.getTime() - currentTime;
     
     if (diffMs <= 0) return { text: "COMPLETED", isPast: true };
     
@@ -169,16 +175,41 @@ export default function HomePage() {
   };
 
   // Calculate progress from time
-  const getProgress = (session: SessionListItem) => {
+  const getProgress = (session: SessionListItem, currentTime: number) => {
     if (session.status === "completed") return 100;
     const meta = session.concept?.metadata as any;
     if (!meta?.start_time || !meta?.end_time) return 0;
     const start = new Date(meta.start_time).getTime();
     const end = new Date(meta.end_time).getTime();
-    const now = Date.now();
     const total = end - start;
     if (total <= 0) return 100;
-    return Math.min(100, Math.max(0, ((now - start) / total) * 100));
+    return Math.min(100, Math.max(0, ((currentTime - start) / total) * 100));
+  };
+
+  const getLastActivity = (session: SessionListItem, currentTime: number) => {
+    let latestTime = session.updated_at ? new Date(session.updated_at).getTime() : currentTime;
+    let activityText = "Updated";
+
+    if (session.blockers && session.blockers.length > 0) {
+      const sortedBlockers = [...session.blockers].sort((a, b) => new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime());
+      const latestBlocker = sortedBlockers[0];
+      const blockerTime = new Date(latestBlocker.reported_at).getTime();
+      if (blockerTime >= latestTime - 10000) { 
+        latestTime = blockerTime;
+        activityText = latestBlocker.resolved ? "Blocker resolved" : "Blocker reported";
+      }
+    }
+    
+    const diffMs = Math.max(0, currentTime - latestTime);
+    if (diffMs < 60000) return `${activityText} just now`;
+    
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 60) return `${activityText} ${minutes}m ago`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${activityText} ${hours}h ago`;
+    
+    return `${activityText} ${Math.floor(hours / 24)}d ago`;
   };
 
   // Get current phase from roadmap
@@ -198,6 +229,31 @@ export default function HomePage() {
 
   const isExampleSession = (session: SessionListItem) =>
     session.id === EXAMPLE_MISSION.id;
+
+  const getSeverityScore = (status: string) => {
+    switch(status) {
+      case "BLOCKED": return 3;
+      case "AT_RISK": return 2;
+      case "ON_TRACK": return 1;
+      case "DONE": return 0;
+      default: return 0;
+    }
+  };
+
+  const sortedSessions = [...displaySessions].sort((a, b) => {
+    if (sortBy === "STATUS") {
+      const statusA = getSessionStatus(a);
+      const statusB = getSessionStatus(b);
+      return getSeverityScore(statusB) - getSeverityScore(statusA);
+    }
+    if (sortBy === "NAME") {
+      return getProjectName(a).localeCompare(getProjectName(b));
+    }
+    // Default to TIME REMAINING (ascending)
+    const timeA = getHackathonEndTime(a) ? new Date(getHackathonEndTime(a)!).getTime() : Infinity;
+    const timeB = getHackathonEndTime(b) ? new Date(getHackathonEndTime(b)!).getTime() : Infinity;
+    return timeA - timeB;
+  });
 
   return (
     <div className="flex flex-col w-full relative">
@@ -267,7 +323,11 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-xs">
             <span className="font-label-caps text-label-caps text-on-surface-variant">SORT BY:</span>
-            <select className="bg-surface-container text-on-surface font-data-mono text-data-mono px-sm py-xs rounded border border-outline-variant outline-none focus:border-primary">
+            <select 
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-surface-container text-on-surface font-data-mono text-data-mono px-sm py-xs rounded border border-outline-variant outline-none focus:border-primary"
+            >
               <option>TIME REMAINING</option>
               <option>STATUS</option>
               <option>NAME</option>
@@ -303,16 +363,17 @@ export default function HomePage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-              {displaySessions.map((session) => {
+              {sortedSessions.map((session) => {
                 const name = getProjectName(session);
                 const endTime = getHackathonEndTime(session);
-                const { text: timeText, isPast } = calculateTimeRemaining(endTime);
+                const { text: timeText, isPast } = calculateTimeRemaining(endTime, now);
                 const idAbbr = session.id.slice(0, 8).toUpperCase();
                 const teamMembers = getTeamMembers(session);
                 const teamSize = teamMembers.length || getTeamSize(session);
                 const status = getSessionStatus(session);
                 const colors = getStatusColors(status);
-                const progress = getProgress(session);
+                const progress = getProgress(session, now);
+                const lastActivity = getLastActivity(session, now);
                 const phase = getCurrentPhase(session);
                 const isDone = status === "DONE" || isPast;
                 const isExample = isExampleSession(session);
@@ -388,6 +449,9 @@ export default function HomePage() {
                       </div>
                       <div className="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
                         <div className={`h-full ${colors.bar} rounded-full ${colors.barShadow}`} style={{ width: `${progress}%` }}></div>
+                      </div>
+                      <div className="font-data-mono text-[9px] text-on-surface-variant text-center opacity-80 pt-1">
+                        {lastActivity}
                       </div>
                     </div>
                   </Link>

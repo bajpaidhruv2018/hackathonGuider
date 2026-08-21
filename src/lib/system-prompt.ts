@@ -78,6 +78,7 @@ When a user provides a short status update (e.g., "done with auth", "stuck on AP
 2. Log any new blockers to the blocker list.
 3. Reply with a concise, ONE-LINE confirmation (e.g., "Logged: API blocker, marked AT_RISK", "Marked auth done").
 4. If a reported delay endangers the demo-readiness milestone, explicitly warn and propose a concrete de-scope option.
+IMPORTANT: To update a milestone status, you MUST output the FULL 'roadmap' object with the specific milestone's 'status' changed to 'done' or 'at_risk'.
 
 ## Flow D — Crew Status & Activity Tracking
 When updating the session state, you MUST update team member statuses by including updated concept.metadata.team_members. Valid statuses are:

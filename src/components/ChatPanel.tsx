@@ -7,6 +7,7 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  isCompleted?: boolean;
 }
 
 const QUICK_PROMPTS = [
@@ -31,6 +32,7 @@ export default function ChatPanel({
   messages,
   onSendMessage,
   isLoading,
+  isCompleted = false,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [time, setTime] = useState("");
@@ -290,6 +292,7 @@ export default function ChatPanel({
       </div>
 
       {/* Chat Input */}
+      {!isCompleted && (
       <div className="p-md bg-surface-container border-t border-outline-variant shadow-lg relative z-20">
         <form onSubmit={handleSubmit} className="relative flex items-center bg-surface-container-lowest rounded border border-outline-variant focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50 transition-all shadow-sm">
           <span className="material-symbols-outlined text-outline absolute left-md">terminal</span>
@@ -314,6 +317,7 @@ export default function ChatPanel({
           <span className="font-data-mono text-[10px] text-outline">Press Enter to send</span>
         </div>
       </div>
+      )}
     </div>
   );
 }
